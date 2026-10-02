@@ -1,0 +1,10 @@
+M&A Shop — independent project 1.0.0
+Export date: 2026-09-30
+Client: React / Vite / TypeScript
+Server: Node.js / Express / TypeScript
+Database: SQLite, SQL migrations, Drizzle schema
+Authentication: local email/password accounts, scrypt, opaque HttpOnly session cookies
+Layout: client / server / database; feature modules
+Packaging: one project ZIP, no nested archives
+Validation: clean npm ci, TypeScript/build, 137 HTTP checks, development proxy and masked owner setup passed
+Browser interaction: not validated in this environment

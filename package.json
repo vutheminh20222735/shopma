@@ -1,0 +1,39 @@
+{
+  "name": "ma-shop",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "engines": {
+    "node": ">=22.13.0"
+  },
+  "workspaces": [
+    "client"
+  ],
+  "scripts": {
+    "dev": "node --env-file-if-exists=.env server/scripts/dev.mjs",
+    "dev:client": "npm --prefix client run start -- --configuration development",
+    "dev:server": "node --env-file-if-exists=.env --watch --import tsx server/index.ts",
+    "check": "tsc --noEmit -p tsconfig.json",
+    "build": "npm run check && npm --prefix client run build",
+    "start": "node --env-file-if-exists=.env --import tsx server/index.ts",
+    "setup:admin": "node --env-file-if-exists=.env --import tsx server/scripts/setup-admin.ts",
+    "db:migrate": "node --env-file-if-exists=.env --import tsx database/migrate.ts",
+    "db:seed": "node --env-file-if-exists=.env --import tsx database/seeds/run.ts",
+    "db:generate": "drizzle-kit generate",
+    "test": "node --import tsx --test server/tests/standalone.test.mjs"
+  },
+  "dependencies": {
+    "drizzle-orm": "0.45.2",
+    "express": "5.1.0",
+    "nodemailer": "^6.10.1",
+    "tsx": "4.20.5"
+  },
+  "devDependencies": {
+    "@types/express": "5.0.3",
+    "@types/node": "22.19.19",
+    "@types/nodemailer": "^6.4.17",
+    "drizzle-kit": "0.31.10",
+    "esbuild": "0.28.2",
+    "typescript": "^5.7.3"
+  }
+}

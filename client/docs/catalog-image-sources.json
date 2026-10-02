@@ -1,0 +1,107 @@
+{
+  "retrieved_at": "2026-09-30",
+  "license_summary": "Unsplash License permits free commercial and noncommercial use, download, copy, modify and distribute without permission or mandatory attribution; images cannot be sold as-is or compiled to replicate a competing stock-image service. Each selected source page marks the photo as free under this license.",
+  "license_source_ref": "turn4view1",
+  "assets": [
+    {
+      "filename": "tee.jpg",
+      "category": "Plain white tee",
+      "photographer": "Haryo Setyadi",
+      "page_url": "https://unsplash.com/photos/white-crew-neck-t-shirt-acn5ERAeSb4",
+      "image_url": "https://images.unsplash.com/photo-1581655353564-df123a1eb820?auto=format&fit=crop&fm=jpg&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D&ixlib=rb-4.1.0&q=60&w=3000",
+      "source_ref": "turn4view0",
+      "path": "/workspace/scratch/5ecf7e1deac5/ma-assets/tee.jpg",
+      "reuse_evidence": "Source page explicitly states 'Free to use under the Unsplash License'.",
+      "license_url": "https://unsplash.com/license",
+      "inspected": true
+    },
+    {
+      "filename": "shirt.jpg",
+      "category": "Neutral white shirt and tops on a rack",
+      "photographer": "L S",
+      "page_url": "https://unsplash.com/photos/white-dress-shirt-hanged-on-black-clothes-hanger-R0LzhF574gU",
+      "image_url": "https://images.unsplash.com/photo-1624222244232-5f1ae13bbd53?auto=format&fit=crop&fm=jpg&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D&ixlib=rb-4.1.0&q=60&w=3000",
+      "source_ref": "turn5view0",
+      "path": "/workspace/scratch/5ecf7e1deac5/ma-assets/shirt.jpg",
+      "reuse_evidence": "Source page explicitly states 'Free to use under the Unsplash License'.",
+      "license_url": "https://unsplash.com/license",
+      "inspected": true,
+      "visual_notes": "Rack of white and dark neutral shirts; use as a generic shirt/top image rather than a fabric-specific Oxford claim."
+    },
+    {
+      "filename": "jeans.jpg",
+      "category": "Blue denim jeans",
+      "photographer": "Ella Christenson",
+      "page_url": "https://unsplash.com/photos/blue-denim-jeans-on-brown-wooden-table-3r-3z_1UkZQ",
+      "image_url": "https://images.unsplash.com/photo-1580437167606-6e682c992c8b?auto=format&fit=crop&fm=jpg&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D&ixlib=rb-4.1.0&q=60&w=3000",
+      "source_ref": "turn5view1",
+      "path": "/workspace/scratch/5ecf7e1deac5/ma-assets/jeans.jpg",
+      "reuse_evidence": "Source page explicitly states 'Free to use under the Unsplash License'.",
+      "license_url": "https://unsplash.com/license",
+      "inspected": true,
+      "visual_notes": "Folded jeans contain visible ROLLAS labels in the upper half. Use a crop below the labels for an unbranded M&A product card."
+    },
+    {
+      "filename": "knit.jpg",
+      "category": "Cream knit sweater",
+      "photographer": "Yuliia Pakhomova",
+      "page_url": "https://unsplash.com/photos/a-cream-colored-knitted-sweater-hanging-indoors-k8ZHLmyZvvo",
+      "image_url": "https://images.unsplash.com/photo-1773747310819-ae0ca63f5385?auto=format&fit=crop&fm=jpg&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D&ixlib=rb-4.1.0&q=60&w=3000",
+      "source_ref": "turn6view0",
+      "path": "/workspace/scratch/5ecf7e1deac5/ma-assets/knit.jpg",
+      "reuse_evidence": "Source page explicitly states 'Free to use under the Unsplash License'.",
+      "license_url": "https://unsplash.com/license",
+      "inspected": true,
+      "visual_notes": "Cream fuzzy knit hanging indoors; landscape framing shows fabric and sleeves."
+    },
+    {
+      "filename": "blazer.jpg",
+      "category": "Black blazer",
+      "photographer": "Laura Chouette",
+      "page_url": "https://unsplash.com/photos/woman-in-black-blazer-standing-near-white-wall-Vb87JjEy6UU",
+      "image_url": "https://images.unsplash.com/photo-1588186941799-f9a4fc54ff1e?auto=format&fit=crop&fm=jpg&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D&ixlib=rb-4.1.0&q=60&w=3000",
+      "source_ref": "turn5view3",
+      "path": "/workspace/scratch/5ecf7e1deac5/ma-assets/blazer.jpg",
+      "reuse_evidence": "Source page explicitly states 'Free to use under the Unsplash License'.",
+      "license_url": "https://unsplash.com/license",
+      "inspected": true
+    },
+    {
+      "filename": "pants.jpg",
+      "category": "Beige pants",
+      "photographer": "Timofey Radkevich",
+      "page_url": "https://unsplash.com/photos/a-young-woman-in-a-black-top-and-beige-pants-fff4JJAUF9w",
+      "image_url": "https://images.unsplash.com/photo-1771621089871-55ed3cfa9dc4?auto=format&fit=crop&fm=jpg&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D&ixlib=rb-4.1.0&q=60&w=3000",
+      "source_ref": "turn6view1",
+      "path": "/workspace/scratch/5ecf7e1deac5/ma-assets/pants.jpg",
+      "reuse_evidence": "Source page explicitly states 'Free to use under the Unsplash License'.",
+      "license_url": "https://unsplash.com/license",
+      "inspected": true,
+      "visual_notes": "Portrait of model wearing beige wide-leg pants and black top; a long portrait crop preserves more of the trousers."
+    },
+    {
+      "filename": "dress.jpg",
+      "category": "Lavender linen dress",
+      "photographer": "Laura Ohlman",
+      "page_url": "https://unsplash.com/photos/a-person-in-a-dress-DlsJEuIiq2I",
+      "image_url": "https://images.unsplash.com/photo-1659297949927-06fa02629af0?auto=format&fit=crop&fm=jpg&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D&ixlib=rb-4.1.0&q=60&w=3000",
+      "source_ref": "turn6view2",
+      "path": "/workspace/scratch/5ecf7e1deac5/ma-assets/dress.jpg",
+      "reuse_evidence": "Source page explicitly states 'Free to use under the Unsplash License'.",
+      "license_url": "https://unsplash.com/license",
+      "inspected": true
+    },
+    {
+      "filename": "bag.jpg",
+      "category": "Leather handbag",
+      "photographer": "Irene Kredenets",
+      "page_url": "https://unsplash.com/photos/brown-leather-handbag-on-white-surface-tcVH_BwHtrc",
+      "image_url": "https://images.unsplash.com/photo-1598532163257-ae3c6b2524b6?auto=format&fit=crop&fm=jpg&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D&ixlib=rb-4.1.0&q=60&w=3000",
+      "source_ref": "turn5view2",
+      "path": "/workspace/scratch/5ecf7e1deac5/ma-assets/bag.jpg",
+      "reuse_evidence": "Source page explicitly states 'Free to use under the Unsplash License'.",
+      "license_url": "https://unsplash.com/license",
+      "inspected": true
+    }
+  ]
+}

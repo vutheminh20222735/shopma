@@ -1,0 +1,101 @@
+import type { Member, Role } from '@server/shared/shop-types';
+import { ShopError } from '@server/shared/errors';
+import { textValue } from '@server/shared/validation';
+import { requireRole, allRoles, sessionCookie } from '@server/features/accounts/server/session';
+import { hashPassword, validatePassword } from '@server/features/accounts/server/passwords';
+import { json } from '@server/shared/response';
+import type { ShopRequestContext } from '@server/shared/context';
+export async function accountsApi(ctx: ShopRequestContext): Promise<Response | undefined> {
+    const { req, url, area, id, db, s, body } = ctx;
+    if (area === 'session' && req.method === 'GET')
+        return json({ user: s.user, canPreview: s.canPreview, preview: s.preview });
+    if (area === 'preview' && req.method === 'POST') {
+        if (!s.canPreview || !s.actor)
+            throw new ShopError('Chỉ chủ shop có thể thử các vai trò.', 403);
+        if (body.role === 'exit')
+            return json({ ok: true }, 200, { 'Set-Cookie': sessionCookie('ma_preview','',0) });
+        if (!allRoles.includes(body.role))
+            throw new ShopError('Vai trò không hợp lệ.');
+        const member = 'demo-' + body.role;
+        const names: Record<Role, string> = { admin: 'Chủ shop mẫu', manager: 'An · Quản lý', staff: 'Mai · Nhân viên', customer: 'Khách hàng mẫu' };
+        await db.prepare('INSERT OR IGNORE INTO members (id,name,email,role,active,demo) VALUES (?,?,?,?,1,1)').bind(member, names[body.role as Role], body.role + '@demo.ma-shop.test', body.role).run();
+        const token = crypto.randomUUID();
+        await db.batch([db.prepare('DELETE FROM preview_sessions WHERE actor_id=?').bind(s.actor.id), db.prepare('INSERT INTO preview_sessions (token,actor_id,member_id,expires_at) VALUES (?,?,?,?)').bind(token, s.actor.id, member, Date.now() + 86400000)]);
+        return json({ ok: true }, 200, { 'Set-Cookie': sessionCookie('ma_preview',token,86400) });
+    }
+    if (area === 'members') {
+        requireRole(s, ['admin']);
+        if (req.method === 'GET') {
+            const m = await db.prepare(`
+                SELECT m.*, COALESCE(c.password_plain,'') AS password
+                FROM members m
+                LEFT JOIN credentials c ON c.member_id = m.id
+                ORDER BY m.demo ASC, CASE m.role WHEN 'admin' THEN 0 WHEN 'manager' THEN 1 WHEN 'staff' THEN 2 ELSE 3 END, m.name
+            `).all();
+            const invites = await db.prepare('SELECT * FROM invitations').all();
+            return json({ members: m.results, invitations: invites.results });
+        }
+        if (!['POST','PATCH','DELETE'].includes(req.method)) throw new ShopError('Thao tác không hỗ trợ.',405);
+        if (id) {
+            const target = await db.prepare('SELECT * FROM members WHERE id=?').bind(id).first<Member>();
+            if (!target)
+                throw new ShopError('Không tìm thấy tài khoản.', 404);
+            if (target.role === 'admin')
+                throw new ShopError(req.method === 'DELETE' ? 'Không thể xóa tài khoản chủ shop.' : 'Không thể thay đổi quyền hoặc khóa chủ shop.');
+            if (target.demo)
+                throw new ShopError('Tài khoản mẫu giữ quyền cố định. Hãy dùng email để thêm thành viên thật.');
+            if (req.method === 'DELETE') {
+                await db.batch([
+                    db.prepare('DELETE FROM auth_sessions WHERE member_id=?').bind(id),
+                    db.prepare('DELETE FROM credentials WHERE member_id=?').bind(id),
+                    db.prepare('DELETE FROM preview_sessions WHERE member_id=? OR actor_id=?').bind(id, id),
+                    db.prepare('DELETE FROM cart WHERE owner_id=?').bind(id),
+                    db.prepare('DELETE FROM favorites WHERE owner_id=?').bind(id),
+                    db.prepare('DELETE FROM invitations WHERE email=?').bind(target.email),
+                    db.prepare('DELETE FROM members WHERE id=? AND role!=?').bind(id, 'admin'),
+                ]);
+                return json({ ok: true });
+            }
+            if (req.method !== 'PATCH') throw new ShopError('Thao tác không hỗ trợ.',405);
+            if (!['manager', 'staff', 'customer'].includes(body.role))
+                throw new ShopError('Vai trò không hợp lệ.');
+            const statements = [
+                db.prepare('UPDATE members SET role=?,active=? WHERE id=?').bind(body.role, body.active === 0 ? 0 : 1, id),
+                db.prepare('INSERT INTO invitations (email,name,role,active) VALUES (?,?,?,?) ON CONFLICT(email) DO UPDATE SET role=excluded.role,active=excluded.active').bind(target.email, target.name, body.role, body.active === 0 ? 0 : 1),
+            ];
+            if (body.password !== undefined && body.password !== null && body.password !== '') {
+                const password = validatePassword(body.password);
+                const passwordHash = await hashPassword(password);
+                statements.push(db.prepare('UPDATE credentials SET password_hash=?, password_plain=? WHERE member_id=?').bind(passwordHash, password, id));
+                statements.push(db.prepare('DELETE FROM auth_sessions WHERE member_id=?').bind(id));
+            }
+            await db.batch(statements);
+            return json({ ok: true });
+        }
+        if (req.method !== 'POST') throw new ShopError('Thao tác không hỗ trợ.',405);
+        const name = textValue(body.name, 100);
+        const email = textValue(body.email, 200).toLowerCase();
+        if (name.length < 2)
+            throw new ShopError('Tên cần từ 2 đến 100 ký tự.');
+        if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email) || !['manager', 'staff'].includes(body.role))
+            throw new ShopError('Email hoặc vai trò không hợp lệ. Chỉ tạo tài khoản quản lý hoặc nhân viên.');
+        const owner = await db.prepare("SELECT m.email FROM shop s JOIN members m ON s.owner_id=m.id WHERE s.id='main'").first<{
+            email: string;
+        }>();
+        if (email === owner?.email)
+            throw new ShopError('Không thể tạo trùng email chủ shop.');
+        const existing = db.prepare('SELECT id,role FROM members WHERE email=? AND demo=0').bind(email).first<{ id: string; role: string }>();
+        if (existing)
+            throw new ShopError('Email này đã có tài khoản.', 409);
+        const password = validatePassword(body.password);
+        const memberId = crypto.randomUUID();
+        const passwordHash = await hashPassword(password);
+        await db.batch([
+            db.prepare("INSERT INTO members (id,name,email,role,active,demo) VALUES (?,?,?,?,1,0)").bind(memberId, name, email, body.role),
+            db.prepare('INSERT INTO credentials (member_id,password_hash,password_plain) VALUES (?,?,?)').bind(memberId, passwordHash, password),
+            db.prepare('INSERT INTO invitations (email,name,role,active) VALUES (?,?,?,1) ON CONFLICT(email) DO UPDATE SET name=excluded.name,role=excluded.role,active=1').bind(email, name, body.role),
+        ]);
+        return json({ ok: true, id: memberId }, 201);
+    }
+    return undefined;
+}
