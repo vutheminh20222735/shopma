@@ -55,6 +55,12 @@ Project chạy với giá trị mặc định mà không cần file môi trườ
 | `DATABASE_PATH` | Đường dẫn file SQLite |
 | `SESSION_DAYS` | Thời hạn phiên đăng nhập, từ 1 đến 30 ngày |
 | `ADMIN_NAME`, `ADMIN_EMAIL`, `ADMIN_PASSWORD` | Tùy chọn nhập thông tin cho lệnh setup chủ shop |
+| `SMTP_*` | Gửi email quên mật khẩu (xem mục Quên mật khẩu) |
+| `UPLOAD_DIR` | Thư mục lưu ảnh sản phẩm, mặc định `uploads` (phục vụ tại `/uploads`) |
+| `PAYMENTS_LIVE` | `0` (mặc định) = không thu tiền thật; `1` chỉ khi đã cấu hình cổng thanh toán |
+| `PAYMENT_WEBHOOK_SECRET` | Bí mật HMAC xác minh webhook thanh toán (bắt buộc ở production) |
+| `SHIPPING_WEBHOOK_SECRET` | Bí mật HMAC xác minh webhook vận chuyển |
+| `OTP_MODE` | Để trống = thật; `test` chỉ ngoài production (mã OTP cố định `000000`) |
 
 Khi đổi cổng client, đổi `APP_ORIGIN` tương ứng. Ví dụ: `CLIENT_PORT=8080` và `APP_ORIGIN=http://localhost:8080`.
 
@@ -77,10 +83,10 @@ Cấu hình SMTP trong `.env` (`SMTP_HOST`, `SMTP_USER`, `SMTP_PASS`…). Chưa 
 
 | Vai trò | Quyền |
 | --- | --- |
-| Admin / chủ shop | Toàn bộ quản trị, phân quyền và cấu hình liên hệ |
-| Manager / quản lý | Sản phẩm, tồn kho, đơn hàng, mã ưu đãi và tổng quan |
-| Staff / nhân viên | Xem tồn kho, xử lý các bước giao đơn; không sửa sản phẩm/kho hay hủy đơn |
-| Customer / khách hàng | Mua sắm, yêu thích, giỏ hàng, xem đơn của mình và hủy đơn đang chờ xác nhận |
+| Admin / chủ shop | Toàn bộ quản trị, phân quyền, báo cáo, cấu hình ưu đãi/liên hệ |
+| Manager / quản lý | Sản phẩm, tồn kho, đơn hàng, mã ưu đãi, báo cáo, thông báo đơn mới |
+| Staff / nhân viên | Xử lý đơn, nhận thông báo; sửa sản phẩm chỉ khi được cấp quyền; không hủy đơn |
+| Customer / khách hàng | Mua sắm, đánh giá (đã mua), ưu đãi của mình, hủy/đổi size khi đơn chờ xác nhận |
 
 ## 5. Trang và tính năng
 
@@ -88,14 +94,17 @@ Cấu hình SMTP trong `.env` (`SMTP_HOST`, `SMTP_USER`, `SMTP_PASS`…). Chưa 
 | --- | --- |
 | `/` | Trang chủ và bộ sưu tập |
 | `/san-pham` | Tìm kiếm, lọc và sắp xếp |
-| `/san-pham/{id}` | Chi tiết sản phẩm, chọn size/màu |
+| `/san-pham/{id}` | Chi tiết, ảnh, đánh giá/hỏi đáp, chọn size/màu |
 | `/yeu-thich` | Sản phẩm yêu thích |
 | `/gio-hang` | Giỏ hàng |
-| `/thanh-toan` | Luồng đặt hàng mẫu |
-| `/tai-khoan` | Đăng ký, đăng nhập, đăng xuất và lịch sử đơn |
-| `/quan-tri` | Khu vực quản trị theo vai trò |
+| `/thanh-toan` | Đặt hàng + áp một mã ưu đãi |
+| `/tai-khoan` | Đăng ký/đăng nhập, hồ sơ (sinh nhật, OTP SĐT), đơn hàng |
+| `/uu-dai` | Ưu đãi của tôi (chào mừng / sinh nhật / kỷ niệm) |
+| `/quan-tri` | Quản trị: đơn, sản phẩm, báo cáo, ưu đãi, thông báo SSE |
 | `/lien-he` | Zalo, Facebook, số điện thoại và địa chỉ |
 | `/chinh-sach` | Chính sách mua sắm |
+
+Migration `0005`–`0006` chạy tự động khi khởi động API. Thanh toán/vận chuyển thật chưa bật (`PAYMENTS_LIVE=0`); webhook stub cần chữ ký HMAC.
 
 Logo nằm tại `client/public/images/logo-ma-shop.png`, banner tại `hero-campaign.png`.
 

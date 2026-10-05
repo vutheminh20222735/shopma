@@ -22,5 +22,12 @@ export type Order = {
         variant_id: string;
     }[];
     created_at: string;
+    coupon_code?: string;
+    offer_id?: string;
+    tracking_code?: string;
+    payment_status?: string;
+    refund_status?: string;
+    confirmed_at?: string | null;
+    version?: number;
 };
 export const statusNames: Record<string, string> = { pending: 'Chờ xác nhận', confirmed: 'Đã xác nhận', packing: 'Đang đóng gói', shipping: 'Đang giao', delivered: 'Đã giao', cancelled: 'Đã hủy' };

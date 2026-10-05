@@ -6,14 +6,22 @@ import { money } from '../../shared/formatters';
 import { normalize } from './utils';
 import { ShopService } from '../../shop/shop.service';
 import { ProductEditorComponent } from './product-editor.component';
+import type { PendingImage } from './product-images.component';
+import { StaffGrantsComponent } from './staff-grants.component';
 import { ModalComponent } from '../../shared/ui/modal.component';
 import { IconsComponent } from '../../shared/icons.component';
 
 @Component({
   selector: 'app-product-management',
   standalone: true,
-  imports: [FormsModule, ProductEditorComponent, ModalComponent, IconsComponent],
-  template: `<div class="admin-toolbar">
+  imports: [FormsModule, ProductEditorComponent, StaffGrantsComponent, ModalComponent, IconsComponent],
+  template: `@if (!manager) {
+      <p class="unavailable-note admin-note">
+        <app-icon name="shield-check" [size]="15" />Nhân viên chỉ sửa được sản phẩm khi chủ shop hoặc quản lý đã cấp
+        quyền. Nếu chưa có quyền, hệ thống sẽ báo khi lưu.
+      </p>
+    }
+    <div class="admin-toolbar">
       <div class="search-field">
         <app-icon name="search" [size]="18" />
         <input
@@ -23,7 +31,9 @@ import { IconsComponent } from '../../shared/icons.component';
           name="q"
         />
       </div>
-      <button class="button black" (click)="edit = 'new'"><app-icon name="plus" [size]="17" />Thêm sản phẩm</button>
+      @if (manager) {
+        <button class="button black" (click)="edit = 'new'"><app-icon name="plus" [size]="17" />Thêm sản phẩm</button>
+      }
     </div>
     <div class="admin-panel table-scroll">
       <table>
@@ -51,17 +61,23 @@ import { IconsComponent } from '../../shared/icons.component';
               <td>{{ money(p.price) }}</td>
               <td>{{ p.sizes.length }} size / {{ p.colors.length }} màu</td>
               <td>
-                <span [class]="'pill ' + (!p.active ? 'muted' : '')">{{ p.active ? 'Đang bán' : 'Đã ẩn' }}</span>
+                <span [class]="'pill ' + (!p.active ? 'muted' : '')">{{ p.active ? 'Đang bán' : 'Ngừng bán' }}</span>
               </td>
               <td>
                 <div class="table-actions">
                   <button class="icon-button" [attr.aria-label]="'Sửa ' + p.name" (click)="edit = p">
                     <app-icon name="pencil" [size]="18" />
                   </button>
-                  @if (p.active === 1) {
-                    <button class="icon-button" [attr.aria-label]="'Ẩn ' + p.name" (click)="hide = p">
-                      <app-icon name="eye" [size]="18" />
-                    </button>
+                  @if (manager) {
+                    @if (p.active === 1) {
+                      <button class="text-button danger" [attr.aria-label]="'Ngừng bán ' + p.name" (click)="hide = p">
+                        Ngừng bán
+                      </button>
+                    } @else {
+                      <button class="text-button" [attr.aria-label]="'Bán lại ' + p.name" [disabled]="shop.busy" (click)="restore(p)">
+                        Bán lại
+                      </button>
+                    }
                   }
                 </div>
               </td>
@@ -73,20 +89,28 @@ import { IconsComponent } from '../../shared/icons.component';
         <p class="muted">Không tìm thấy sản phẩm.</p>
       }
     </div>
+    @if (manager) {
+      <app-staff-grants />
+    }
     @if (edit) {
       <app-product-editor
         [product]="edit === 'new' ? null : edit"
         [busy]="shop.busy"
+        [manager]="manager"
         (close)="edit = null"
         (save)="onSave($event)"
+        (imagesChanged)="refresh()"
       />
     }
     @if (hide) {
-      <app-modal title="Ẩn sản phẩm?" (close)="hide = null">
-        <p>{{ hide.name }} sẽ ngừng hiển thị trong cửa hàng. Đơn hàng cũ vẫn được giữ lại.</p>
+      <app-modal title="Ngừng bán sản phẩm?" (close)="hide = null">
+        <p>
+          {{ hide.name }} sẽ ngừng hiển thị trong cửa hàng và bị gỡ khỏi giỏ hàng. Đơn hàng, đánh giá và hình ảnh cũ vẫn
+          được giữ lại; bạn có thể bán lại bất cứ lúc nào.
+        </p>
         <div class="modal-actions">
           <button class="button outline" (click)="hide = null">Để lại</button>
-          <button class="button black" (click)="hideProduct()">Ẩn sản phẩm</button>
+          <button class="button black" [disabled]="shop.busy" (click)="hideProduct()">Ngừng bán</button>
         </div>
       </app-modal>
     }`,
@@ -98,6 +122,10 @@ export class ProductManagementComponent implements OnInit {
   q = '';
   edit: Product | 'new' | null = null;
   hide: Product | null = null;
+
+  get manager() {
+    return this.shop.isManagement;
+  }
 
   get visible() {
     return this.list.filter((p) => normalize(p.name).includes(normalize(this.q)));
@@ -115,12 +143,34 @@ export class ProductManagementComponent implements OnInit {
     }
   }
 
-  onSave(v: any) {
+  async refresh() {
+    await this.load();
+    await this.shop.reload();
+  }
+
+  onSave(v: { body: any; pending: PendingImage[] }) {
+    const creating = this.edit === 'new';
+    const existingId = creating ? '' : (this.edit as Product).id;
     void this.shop.run(async () => {
-      await api('products' + (this.edit === 'new' ? '' : '/' + (this.edit as Product).id), this.edit === 'new' ? 'POST' : 'PATCH', v);
+      const saved = await api<{ id: string }>(
+        'products' + (creating ? '' : '/' + existingId),
+        creating ? 'POST' : 'PATCH',
+        v.body,
+      );
+      const productId = saved.id || existingId;
+      // Tải ảnh theo đúng thứ tự đã sắp xếp; lỗi ảnh không làm mất sản phẩm vừa lưu.
+      let failed = '';
+      for (const img of v.pending) {
+        try {
+          await this.shop.uploadProductImage(productId, img.dataUrl, img.primary);
+        } catch (e) {
+          failed = (e as Error).message;
+          break;
+        }
+      }
       this.edit = null;
-      await this.load();
-      await this.shop.reload();
+      await this.refresh();
+      if (failed) throw new Error('Đã lưu sản phẩm nhưng chưa tải hết ảnh: ' + failed);
     }, 'Đã lưu sản phẩm.');
   }
 
@@ -128,10 +178,16 @@ export class ProductManagementComponent implements OnInit {
     if (!this.hide) return;
     const id = this.hide.id;
     void this.shop.run(async () => {
-      await api('products/' + id, 'DELETE', {});
+      await this.shop.discontinueProduct(id);
       this.hide = null;
-      await this.load();
-      await this.shop.reload();
-    }, 'Đã ẩn sản phẩm.');
+      await this.refresh();
+    }, 'Đã ngừng bán sản phẩm.');
+  }
+
+  restore(p: Product) {
+    void this.shop.run(async () => {
+      await this.shop.restoreProduct(p.id);
+      await this.refresh();
+    }, 'Đã bán lại sản phẩm.');
   }
 }

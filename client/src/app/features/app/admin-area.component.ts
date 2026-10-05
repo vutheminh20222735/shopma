@@ -12,6 +12,9 @@ import { CouponManagementComponent } from '../coupons/coupon-management.componen
 import { MemberManagementComponent } from '../accounts/member-management.component';
 import { ShopSettingsComponent } from '../contacts/shop-settings.component';
 import { IconsComponent } from '../../shared/icons.component';
+import { RevenueReportComponent } from '../reports/revenue-report.component';
+import { OfferConfigComponent } from '../offers/offer-config.component';
+import { NotificationBellComponent } from '../notifications/notification-bell.component';
 
 type AdminTab = {
   id: string;
@@ -34,6 +37,9 @@ type AdminTab = {
     MemberManagementComponent,
     ShopSettingsComponent,
     IconsComponent,
+    RevenueReportComponent,
+    OfferConfigComponent,
+    NotificationBellComponent,
   ],
   template: `@if (!shop.loaded) {
       <app-loader />
@@ -76,7 +82,10 @@ type AdminTab = {
               <span class="eyebrow">M&A SHOP / {{ roleNames[shop.session.user!.role].toUpperCase() }}</span>
               <h1>{{ heading }}</h1>
             </div>
-            <span class="pill">Bản trải nghiệm</span>
+            <div class="admin-heading-tools">
+              <app-notification-bell />
+              <span class="pill">Bản trải nghiệm</span>
+            </div>
           </header>
           @if (!current?.allowed) {
             <app-empty title="Bạn không có quyền vào mục này" />
@@ -88,6 +97,10 @@ type AdminTab = {
             <app-product-management />
           } @else if (tab === 'kho-hang') {
             <app-inventory [user]="shop.session.user!" />
+          } @else if (tab === 'bao-cao') {
+            <app-revenue-report />
+          } @else if (tab === 'cau-hinh-uu-dai') {
+            <app-offer-config />
           } @else if (tab === 'uu-dai') {
             <app-coupon-management />
           } @else if (tab === 'tai-khoan') {
@@ -119,16 +132,21 @@ export class AdminAreaComponent implements OnInit {
   }
 
   private syncTab() {
-    this.tab = this.route.snapshot.paramMap.get('tab') || (this.manager ? 'tong-quan' : 'don-hang');
+    // /quan-tri?order=ID (liên kết từ thông báo) mở thẳng tab Đơn hàng.
+    const fromNotification = this.route.snapshot.queryParamMap.has('order');
+    this.tab =
+      this.route.snapshot.paramMap.get('tab') || (fromNotification || !this.manager ? 'don-hang' : 'tong-quan');
   }
 
   get tabs(): AdminTab[] {
     return [
       { id: 'tong-quan', label: 'Tổng quan', icon: 'layout-dashboard', allowed: this.manager },
       { id: 'don-hang', label: 'Đơn hàng', icon: 'shopping-basket', allowed: true },
-      { id: 'san-pham', label: 'Sản phẩm', icon: 'package', allowed: this.manager },
+      { id: 'san-pham', label: 'Sản phẩm', icon: 'package', allowed: true },
       { id: 'kho-hang', label: 'Kho hàng', icon: 'boxes', allowed: true },
+      { id: 'bao-cao', label: 'Báo cáo', icon: 'bar-chart', allowed: this.manager },
       { id: 'uu-dai', label: 'Mã ưu đãi', icon: 'tag', allowed: this.manager },
+      { id: 'cau-hinh-uu-dai', label: 'Ưu đãi thành viên', icon: 'gift', allowed: this.manager },
       { id: 'tai-khoan', label: 'Phân quyền', icon: 'users', allowed: this.user.role === 'admin' },
       { id: 'cai-dat', label: 'Thông tin shop', icon: 'settings', allowed: this.user.role === 'admin' },
     ];

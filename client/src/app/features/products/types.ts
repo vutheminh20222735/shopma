@@ -1,5 +1,12 @@
 import type { Variant } from '../inventory/types';
 
+export type ProductImage = {
+  id: string;
+  path: string;
+  sort_order: number;
+  is_primary: number;
+};
+
 export type Product = {
   id: string;
   name: string;
@@ -15,6 +22,14 @@ export type Product = {
   is_new: number;
   active: number;
   variants?: Variant[];
+  images?: ProductImage[];
+};
+
+export type StaffGrant = {
+  id: string;
+  name: string;
+  email: string;
+  can_edit: number;
 };
 
 export const swatches: Record<string, string> = {

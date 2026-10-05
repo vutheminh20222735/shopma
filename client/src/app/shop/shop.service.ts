@@ -1,9 +1,24 @@
 import { Injectable, inject } from '@angular/core';
 import { NavigationEnd, Router } from '@angular/router';
-import { api } from '../shared/api';
+import { api, apiDownload, query } from '../shared/api';
 import type { Notice } from '../shared/types';
 import type { CartItem } from '../features/cart/types';
-import type { Product } from '../features/products/types';
+import type { Product, StaffGrant } from '../features/products/types';
+import type { CommentList, ReviewPage } from '../features/reviews/types';
+import type { OrderDetail } from '../features/orders/types';
+import type { AppNotification } from '../features/notifications/types';
+import type {
+  AppliedOffer,
+  IssuedOffer,
+  MyOffers,
+  OfferConfig,
+  OfferConfigInput,
+  OfferHistoryRow,
+  OfferKind,
+  Profile,
+} from '../features/offers/types';
+import type { ReportQuery, RevenueReport } from '../features/reports/types';
+import type { SavedAddress } from '../features/addresses/types';
 import type { Session, Role } from '../features/accounts/types';
 import { roleNames } from '../features/accounts/types';
 import type { Settings } from '../features/contacts/types';
@@ -185,6 +200,235 @@ export class ShopService {
       await api('favorites/' + p.id, this.favorites.includes(p.id) ? 'DELETE' : 'POST', {});
       this.favorites = await api<string[]>('favorites');
     }, this.favorites.includes(p.id) ? 'Đã bỏ lưu sản phẩm.' : 'Đã lưu vào yêu thích.');
+  }
+
+  // ---------- Đánh giá & hỏi đáp ----------
+  getReviews(productId: string, opts: { stars?: number; page?: number; includeHidden?: boolean } = {}) {
+    return api<ReviewPage>(
+      `products/${encodeURIComponent(productId)}/reviews` +
+        query({ stars: opts.stars || undefined, page: opts.page, include_hidden: opts.includeHidden }),
+    );
+  }
+
+  createReview(productId: string, rating: number, content: string) {
+    return api<{ id: string; verified_purchase: boolean }>('reviews', 'POST', { product_id: productId, rating, content });
+  }
+
+  updateReview(reviewId: string, rating: number, content: string) {
+    return api('reviews/' + encodeURIComponent(reviewId), 'PATCH', { rating, content });
+  }
+
+  /** reason = null -> hiện lại đánh giá. */
+  moderateReview(reviewId: string, reason: string | null) {
+    return api(
+      `reviews/${encodeURIComponent(reviewId)}/hide`,
+      'POST',
+      reason === null ? { hidden: false } : { hidden: true, reason },
+    );
+  }
+
+  getComments(productId: string, includeHidden = false) {
+    return api<CommentList>(
+      `products/${encodeURIComponent(productId)}/comments` + query({ include_hidden: includeHidden }),
+    );
+  }
+
+  postComment(productId: string, content: string, parentId?: string) {
+    return api<{ id: string; is_staff_reply: boolean }>(`products/${encodeURIComponent(productId)}/comments`, 'POST', {
+      content,
+      ...(parentId ? { parent_id: parentId } : {}),
+    });
+  }
+
+  moderateComment(commentId: string, reason: string | null) {
+    return api(
+      `comments/${encodeURIComponent(commentId)}/hide`,
+      'POST',
+      reason === null ? { hidden: false } : { hidden: true, reason },
+    );
+  }
+
+  // ---------- Đơn hàng ----------
+  getOrder(orderId: string) {
+    return api<OrderDetail>('orders/' + encodeURIComponent(orderId));
+  }
+
+  setOrderStatus(orderId: string, status: string, version?: number, note = '') {
+    return api('orders/' + encodeURIComponent(orderId), 'PATCH', { status, note, version });
+  }
+
+  cancelOrder(orderId: string, note = '', version?: number) {
+    return api(`orders/${encodeURIComponent(orderId)}/cancel`, 'POST', { note, version });
+  }
+
+  resizeOrderItem(orderId: string, variantId: string, size: string, version?: number) {
+    return api<{ ok: boolean; total: number; price_delta: number }>(
+      `orders/${encodeURIComponent(orderId)}/resize`,
+      'POST',
+      { variant_id: variantId, size, version },
+    );
+  }
+
+  getProduct(productId: string, manage = false) {
+    return api<Product>(`products/${encodeURIComponent(productId)}` + query({ manage }));
+  }
+
+  confirmPayment(orderId: string, note = '') {
+    return api(`payments/${encodeURIComponent(orderId)}/confirm`, 'POST', { note });
+  }
+
+  confirmRefund(orderId: string, providerRef = '') {
+    return api(`payments/${encodeURIComponent(orderId)}/refund-confirm`, 'POST', { provider_ref: providerRef });
+  }
+
+  createShipment(orderId: string) {
+    return api(`shipping/${encodeURIComponent(orderId)}/create`, 'POST', {});
+  }
+
+  // ---------- Thông báo (nhân sự) ----------
+  getNotifications(opts: { limit?: number; unread?: boolean } = {}) {
+    return api<{ items: AppNotification[]; unread: number }>(
+      'notifications' + query({ limit: opts.limit, unread: opts.unread }),
+    );
+  }
+
+  markNotificationsRead(ids: string[] | 'all') {
+    return ids === 'all' ? api('notifications/read-all', 'POST', {}) : api('notifications/read', 'POST', { ids });
+  }
+
+  // ---------- Ưu đãi & hồ sơ ----------
+  getMyOffers() {
+    return api<MyOffers>('my-offers');
+  }
+
+  applyOffer(code: string, subtotal: number) {
+    return api<AppliedOffer>('offers/apply', 'POST', { code, subtotal });
+  }
+
+  getOfferConfigs() {
+    return api<OfferConfig[]>('offers');
+  }
+
+  createOfferConfig(kind: OfferKind, milestone: number, values: OfferConfigInput) {
+    return api<{ id: string }>('offers', 'POST', { kind, milestone, ...values });
+  }
+
+  updateOfferConfig(id: string, values: OfferConfigInput) {
+    return api('offers/' + encodeURIComponent(id), 'PATCH', values);
+  }
+
+  disableOfferConfig(id: string) {
+    return api('offers/' + encodeURIComponent(id), 'DELETE', {});
+  }
+
+  getOfferHistory() {
+    return api<OfferHistoryRow[]>('offers/history');
+  }
+
+  getIssuedOffers() {
+    return api<IssuedOffer[]>('offers/issued');
+  }
+
+  getProfile() {
+    return api<Profile>('profile');
+  }
+
+  updateProfile(patch: { name?: string; phone?: string | null; birthday?: string | null }) {
+    return api<Profile>('profile', 'PATCH', patch);
+  }
+
+  sendOtp(phone: string) {
+    return api<{ ok: boolean; expires_in: number; mode: 'live' | 'test' }>('otp/send', 'POST', { phone });
+  }
+
+  verifyOtp(code: string, phone?: string) {
+    return api<{ ok: boolean; phone_e164: string; verified: boolean; welcome_granted: boolean }>('otp/verify', 'POST', {
+      code,
+      ...(phone ? { phone } : {}),
+    });
+  }
+
+  // ---------- Sổ địa chỉ ----------
+  listAddresses() {
+    return api<SavedAddress[]>('addresses');
+  }
+
+  createAddress(body: { label?: string; recipient_name: string; phone: string; address: string; is_default?: boolean }) {
+    return api<SavedAddress>('addresses', 'POST', body);
+  }
+
+  updateAddress(id: string, body: Partial<{ label: string; recipient_name: string; phone: string; address: string; is_default: boolean }>) {
+    return api<SavedAddress>('addresses/' + encodeURIComponent(id), 'PATCH', body);
+  }
+
+  setDefaultAddress(id: string) {
+    return api(`addresses/${encodeURIComponent(id)}/default`, 'POST', {});
+  }
+
+  deleteAddress(id: string) {
+    return api('addresses/' + encodeURIComponent(id), 'DELETE', {});
+  }
+
+  // ---------- Sản phẩm: ảnh, ngừng bán, quyền sửa ----------
+  uploadProductImage(productId: string, dataUrl: string, primary = false) {
+    return api<{ id: string; path: string; is_primary: boolean }>('uploads/' + encodeURIComponent(productId), 'POST', {
+      data_url: dataUrl,
+      primary,
+    });
+  }
+
+  setPrimaryImage(productId: string, imageId: string) {
+    return api(`uploads/${encodeURIComponent(productId)}/primary`, 'POST', { image_id: imageId });
+  }
+
+  reorderProductImages(productId: string, imageIds: string[]) {
+    return api(`uploads/${encodeURIComponent(productId)}/reorder`, 'POST', { image_ids: imageIds });
+  }
+
+  deleteProductImage(imageId: string) {
+    return api('uploads/' + encodeURIComponent(imageId), 'DELETE', {});
+  }
+
+  discontinueProduct(productId: string) {
+    return api(`products/${encodeURIComponent(productId)}/discontinue`, 'POST', {});
+  }
+
+  restoreProduct(productId: string) {
+    return api(`products/${encodeURIComponent(productId)}/restore`, 'POST', {});
+  }
+
+  getProductGrants() {
+    return api<StaffGrant[]>('product-grants');
+  }
+
+  setProductGrant(memberId: string, canEdit: boolean) {
+    return api('product-grants/' + encodeURIComponent(memberId), 'PATCH', { can_edit: canEdit });
+  }
+
+  // ---------- Báo cáo doanh thu ----------
+  private reportQuery(q: ReportQuery, csv = false) {
+    return query({
+      period: q.period,
+      from: q.period === 'custom' ? q.from : undefined,
+      to: q.period === 'custom' ? q.to : undefined,
+      format: csv ? 'csv' : undefined,
+    });
+  }
+
+  getRevenueReport(q: ReportQuery) {
+    return api<RevenueReport>('reports/revenue' + this.reportQuery(q));
+  }
+
+  async downloadRevenueCsv(q: ReportQuery) {
+    const { blob, filename } = await apiDownload('reports/revenue' + this.reportQuery(q, true));
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = filename;
+    document.body.appendChild(link);
+    link.click();
+    link.remove();
+    setTimeout(() => URL.revokeObjectURL(url), 1000);
   }
 
   async switchRole(role: Role | 'exit') {

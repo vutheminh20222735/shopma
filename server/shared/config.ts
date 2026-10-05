@@ -16,7 +16,18 @@ if (process.env.NODE_ENV !== 'production' && ['localhost', '127.0.0.1'].includes
     }
 }
 const smtpPort = Number(process.env.SMTP_PORT || 587);
+const production = process.env.NODE_ENV === 'production';
+// OTP_MODE=test chỉ có hiệu lực ngoài production: cho phép mã cố định 000000.
+const otpMode: 'live' | 'test' = process.env.OTP_MODE === 'test' && !production ? 'test' : 'live';
 export const config = {
+    production, otpMode,
+    timezone: 'Asia/Ho_Chi_Minh',
+    uploadDir: path.resolve(process.env.UPLOAD_DIR || 'uploads'),
+    maxImageBytes: 5 * 1024 * 1024,
+    maxImagesPerProduct: 8,
+    paymentsLive: process.env.PAYMENTS_LIVE === '1',
+    paymentWebhookSecret: process.env.PAYMENT_WEBHOOK_SECRET || (production ? '' : 'dev-payment-webhook-secret'),
+    shippingWebhookSecret: process.env.SHIPPING_WEBHOOK_SECRET || (production ? '' : 'dev-shipping-webhook-secret'),
     projectRoot: process.cwd(), port, host: process.env.HOST || '127.0.0.1',
     appOrigin: appUrl.origin, allowedOrigins, secureCookie: appUrl.protocol === 'https:',
     sessionMilliseconds: sessionDays * 86400000,

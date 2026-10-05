@@ -5,6 +5,8 @@ import { requireRole, allRoles, sessionCookie } from '@server/features/accounts/
 import { hashPassword, validatePassword } from '@server/features/accounts/server/passwords';
 import { json } from '@server/shared/response';
 import type { ShopRequestContext } from '@server/shared/context';
+import { grantWelcome, normalizePhone } from '@server/features/offers/server/offers';
+import { isYmd, nowIso, todayYmd } from '@server/shared/time';
 export async function accountsApi(ctx: ShopRequestContext): Promise<Response | undefined> {
     const { req, url, area, id, db, s, body } = ctx;
     if (area === 'session' && req.method === 'GET')
@@ -22,6 +24,46 @@ export async function accountsApi(ctx: ShopRequestContext): Promise<Response | u
         const token = crypto.randomUUID();
         await db.batch([db.prepare('DELETE FROM preview_sessions WHERE actor_id=?').bind(s.actor.id), db.prepare('INSERT INTO preview_sessions (token,actor_id,member_id,expires_at) VALUES (?,?,?,?)').bind(token, s.actor.id, member, Date.now() + 86400000)]);
         return json({ ok: true }, 200, { 'Set-Cookie': sessionCookie('ma_preview',token,86400) });
+    }
+    if (area === 'profile') {
+        const u = requireRole(s, allRoles);
+        const columns = 'id,name,email,role,phone_e164,phone_verified,phone_verified_at,birthday,birthday_updated_at,created_at';
+        if (req.method === 'GET')
+            return json(await db.prepare(`SELECT ${columns} FROM members WHERE id=?`).bind(u.id).first());
+        if (req.method !== 'PATCH')
+            throw new ShopError('Thao tác không hỗ trợ.', 405);
+        const current = await db.prepare('SELECT * FROM members WHERE id=?').bind(u.id).first<any>();
+        if (!current)
+            throw new ShopError('Không tìm thấy tài khoản.', 404);
+        const sets: string[] = [], values: (string | number | null)[] = [];
+        if (body.name !== undefined) {
+            const name = textValue(body.name, 100);
+            if (name.length < 2)
+                throw new ShopError('Tên cần từ 2 đến 100 ký tự.');
+            sets.push('name=?'); values.push(name);
+        }
+        if (body.phone !== undefined) {
+            const phone = body.phone === '' || body.phone === null ? null : normalizePhone(body.phone);
+            if (body.phone && !phone)
+                throw new ShopError('Số điện thoại không hợp lệ.');
+            // Đổi số điện thoại -> phải xác minh OTP lại.
+            if (phone !== current.phone_e164)
+                sets.push('phone_e164=?', 'phone_verified=0', 'phone_verified_at=NULL'), values.push(phone);
+        }
+        if (body.birthday !== undefined) {
+            const birthday = body.birthday === '' || body.birthday === null ? null : body.birthday;
+            if (birthday !== null) {
+                if (!isYmd(birthday) || birthday > todayYmd() || birthday < '1900-01-01')
+                    throw new ShopError('Ngày sinh không hợp lệ (YYYY-MM-DD).');
+            }
+            // Mỗi lần đổi ngày sinh đều đặt lại mốc birthday_updated_at (chống đổi ngày sinh sát ngày để nhận ưu đãi).
+            if (birthday !== current.birthday)
+                sets.push('birthday=?', 'birthday_updated_at=?'), values.push(birthday, birthday === null ? null : nowIso());
+        }
+        if (sets.length)
+            await db.prepare(`UPDATE members SET ${sets.join(',')} WHERE id=?`).bind(...values, u.id).run();
+        grantWelcome(db, u.id);
+        return json(await db.prepare(`SELECT ${columns} FROM members WHERE id=?`).bind(u.id).first());
     }
     if (area === 'members') {
         requireRole(s, ['admin']);
@@ -91,7 +133,7 @@ export async function accountsApi(ctx: ShopRequestContext): Promise<Response | u
         const memberId = crypto.randomUUID();
         const passwordHash = await hashPassword(password);
         await db.batch([
-            db.prepare("INSERT INTO members (id,name,email,role,active,demo) VALUES (?,?,?,?,1,0)").bind(memberId, name, email, body.role),
+            db.prepare("INSERT INTO members (id,name,email,role,active,demo,created_at) VALUES (?,?,?,?,1,0,?)").bind(memberId, name, email, body.role, nowIso()),
             db.prepare('INSERT INTO credentials (member_id,password_hash,password_plain) VALUES (?,?,?)').bind(memberId, passwordHash, password),
             db.prepare('INSERT INTO invitations (email,name,role,active) VALUES (?,?,?,1) ON CONFLICT(email) DO UPDATE SET name=excluded.name,role=excluded.role,active=1').bind(email, name, body.role),
         ]);

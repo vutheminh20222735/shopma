@@ -12,13 +12,21 @@ import { favoritesApi } from '@server/features/favorites/api';
 import { couponsApi } from '@server/features/coupons/api';
 import { ordersApi } from '@server/features/orders/api';
 import { dashboardApi } from '@server/features/dashboard/api';
-const featureApis = [authApi, accountsApi, contactsApi, productsApi, inventoryApi, cartApi, favoritesApi, couponsApi, ordersApi, dashboardApi];
+import { reviewsApi } from '@server/features/reviews/api';
+import { notificationsApi } from '@server/features/notifications/api';
+import { offersApi, otpApi } from '@server/features/offers/api';
+import { uploadsApi } from '@server/features/products/uploads';
+import { reportsApi } from '@server/features/reports/api';
+import { paymentsApi } from '@server/features/payments/api';
+import { shippingApi } from '@server/features/shipping/api';
+import { addressesApi } from '@server/features/addresses/api';
+const featureApis = [authApi, accountsApi, contactsApi, addressesApi, reviewsApi, productsApi, uploadsApi, inventoryApi, cartApi, favoritesApi, couponsApi, offersApi, otpApi, ordersApi, notificationsApi, paymentsApi, shippingApi, reportsApi, dashboardApi];
 export async function handleShopRequest(req: Request) {
     try {
         const url = new URL(req.url);
         const parts = url.pathname.replace(/^\/api\/shop\/?/, '').split('/').filter(Boolean).map(decodeURIComponent);
-        if (parts.length > 2) throw new ShopError('Không tìm thấy chức năng.',404);
-        const [area, id] = parts;
+        if (parts.length > 3) throw new ShopError('Không tìm thấy chức năng.',404);
+        const [area, id, action] = parts;
         const db = database();
         await ensureCatalog();
         if (req.method !== 'GET') {
@@ -29,13 +37,15 @@ export async function handleShopRequest(req: Request) {
                 throw new ShopError('Yêu cầu cần dữ liệu JSON.', 415);
         }
         const s = await getSession(req);
-        const rawBody = req.method === 'GET' ? {} : await req.json().catch(() => { throw new ShopError('Dữ liệu không hợp lệ.'); });
+        // Giữ nguyên chuỗi thô để webhook kiểm tra chữ ký HMAC.
+        const rawText = req.method === 'GET' ? '' : await req.text();
+        const rawBody = req.method === 'GET' ? {} : (() => { try { return JSON.parse(rawText); } catch { throw new ShopError('Dữ liệu không hợp lệ.'); } })();
         if (!rawBody || typeof rawBody !== 'object' || Array.isArray(rawBody))
             throw new ShopError('Dữ liệu không hợp lệ.');
         const body = rawBody as Record<string, any>;
-        const context: ShopRequestContext = { req, url, area, id, db, s, body };
-        for (const action of featureApis) {
-            const response = await action(context);
+        const context: ShopRequestContext = { req, url, area, id, action, db, s, body, rawBody: rawText };
+        for (const feature of featureApis) {
+            const response = await feature(context);
             if (response)
                 return response;
         }

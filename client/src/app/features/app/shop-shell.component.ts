@@ -1,7 +1,8 @@
-import { Component, inject } from '@angular/core';
+import { Component, DoCheck, inject } from '@angular/core';
 import { Router, RouterOutlet } from '@angular/router';
 import { roleNames } from '../accounts/types';
 import { ShopService } from '../../shop/shop.service';
+import { NotificationsService } from '../notifications/notifications.service';
 import { StoreHeaderComponent } from './store-header.component';
 import { StoreFooterComponent } from './store-footer.component';
 import { ContactLauncherComponent } from '../contacts/contact-launcher.component';
@@ -55,12 +56,22 @@ import { IconsComponent } from '../../shared/icons.component';
       <app-size-guide />
     }`,
 })
-export class ShopShellComponent {
+export class ShopShellComponent implements DoCheck {
   shop = inject(ShopService);
+  private notifications = inject(NotificationsService);
   private router = inject(Router);
   roleNames = roleNames;
+  private lastUserId: string | null | undefined;
 
   get isAdmin() {
     return this.router.url.startsWith('/quan-tri');
+  }
+
+  ngDoCheck() {
+    const id = this.shop.session.user?.id ?? null;
+    if (id !== this.lastUserId) {
+      this.lastUserId = id;
+      this.notifications.syncSession();
+    }
   }
 }

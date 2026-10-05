@@ -5,6 +5,8 @@ import { config } from '@server/shared/config';
 import { handleShopRequest } from '@server/routes/shop';
 import { database } from '@server/shared/database';
 import { ensureCatalog } from '@database/seeds/initialize';
+import { notificationStream } from '@server/features/notifications/api';
+import { startOfferJobs } from '@server/features/offers/jobs';
 
 const app = express();
 app.disable('x-powered-by');
@@ -17,7 +19,12 @@ app.use((_req,res,next)=>{
     next();
 });
 app.get('/api/health',(_req,res)=>res.json({status:'ok',shop:'M&A Shop'}));
-app.use('/api/shop',express.raw({type:'application/json',limit:'64kb'}));
+// SSE thông báo nhân viên: kết nối kéo dài nên không đi qua hàng đợi API tuần tự.
+app.get('/api/shop/notifications/stream',notificationStream);
+// Upload ảnh dạng base64 trong JSON cần giới hạn lớn hơn (5MB ảnh ~ 6.7MB base64).
+const smallJson=express.raw({type:'application/json',limit:'64kb'});
+const uploadJson=express.raw({type:'application/json',limit:'8mb'});
+app.use('/api/shop',(req,res,next)=>(/^\/api\/shop\/uploads\/[^/]+\/?(?:\?|$)/.test(req.originalUrl)&&req.method==='POST'?uploadJson:smallJson)(req,res,next));
 app.use('/api/shop',async(req,res,next)=>{
     let authKey: string | undefined;
     const origin = req.get('origin');
@@ -67,6 +74,8 @@ app.use('/api/shop',async(req,res,next)=>{
 });
 app.use('/api',(_req,res)=>res.status(404).json({error:'Không tìm thấy API.'}));
 const clientDist=path.join(config.projectRoot,'client/dist');
+app.use('/uploads',express.static(config.uploadDir,{index:false,dotfiles:'deny',setHeaders:res=>{res.set('Content-Security-Policy',"default-src 'none'");res.set('Cache-Control','public, max-age=86400');}}));
+app.use('/uploads',(_req,res)=>{res.status(404).end();});
 app.use(express.static(clientDist,{index:false}));
 app.use((req,res,next)=>{
     if(req.method!=='GET') {next();return;}
@@ -81,4 +90,6 @@ app.use((error: {status?:number;type?:string},_req:express.Request,res:express.R
 });
 await ensureCatalog();
 const server=app.listen(config.port,config.host,()=>console.log(`M&A Shop API: http://${config.host}:${config.port}`));
-for(const signal of ['SIGTERM','SIGINT'] as const)process.on(signal,()=>server.close(()=>{database().close();process.exit(0);}));
+// Job mã kỷ niệm: bù ngay khi khởi động (nếu hôm nay chưa chạy) rồi kiểm tra mỗi giờ.
+const stopJobs=startOfferJobs(database());
+for(const signal of ['SIGTERM','SIGINT'] as const)process.on(signal,()=>{stopJobs();server.close(()=>{database().close();process.exit(0);});});

@@ -1,19 +1,24 @@
-import { Component, Input, OnInit, inject } from '@angular/core';
+import { Component, Input, OnDestroy, OnInit, inject } from '@angular/core';
+import { ActivatedRoute, Router } from '@angular/router';
+import { Subscription } from 'rxjs';
 import type { Member } from '../accounts/types';
 import type { Order } from './types';
 import { statusNames } from './types';
 import { api } from '../../shared/api';
 import { money } from '../../shared/formatters';
 import { ShopService } from '../../shop/shop.service';
+import { NotificationsService } from '../notifications/notifications.service';
 import { EmptyComponent } from '../../shared/ui/empty.component';
 import { LoaderComponent } from '../../shared/ui/loader.component';
 import { ModalComponent } from '../../shared/ui/modal.component';
 import { IconsComponent } from '../../shared/icons.component';
+import { OrderDetailComponent } from './order-detail.component';
+import { OrderReviewFormComponent } from './order-review-form.component';
 
 @Component({
   selector: 'app-orders-view',
   standalone: true,
-  imports: [EmptyComponent, LoaderComponent, ModalComponent, IconsComponent],
+  imports: [EmptyComponent, LoaderComponent, ModalComponent, IconsComponent, OrderDetailComponent, OrderReviewFormComponent],
   template: `<section class="orders-section">
     <div class="section-heading">
       <h2>{{ manage ? 'Danh sách đơn hàng' : 'Đơn hàng của tôi' }}</h2>
@@ -40,17 +45,33 @@ import { IconsComponent } from '../../shared/icons.component';
               <span [class]="'status ' + o.status">{{ statusNames[o.status] }}</span>
             </div>
             <div class="order-card-body">
-              <img [src]="o.items[0]?.image" alt="Sản phẩm trong đơn" />
+              <img [src]="o.items[0].image" alt="Sản phẩm trong đơn" />
               <div>
-                <h3>{{ manage ? o.customer_name : o.items[0]?.name }}</h3>
+                <h3>{{ manage ? o.customer_name : o.items[0].name }}</h3>
                 <p>
-                  {{ itemQty(o) }} sản phẩm · {{ o.payment === 'cod' ? 'COD' : 'Chuyển khoản mẫu' }}
+                  {{ itemQty(o) }} sản phẩm · {{ o.payment === 'cod' ? 'COD' : 'Chuyển khoản' }}
                 </p>
                 <strong>{{ money(o.total) }}</strong>
+                @if (!manage && o.received) {
+                  <p class="order-received">
+                    <app-icon name="package-check" [size]="15" />Đã nhận hàng
+                    @if (o.all_reviewed) {
+                      <span>· Đã đánh giá</span>
+                    } @else if (o.review_pending?.length) {
+                      <span>· Chưa đánh giá {{ o.review_pending!.length }} sản phẩm</span>
+                    }
+                  </p>
+                }
               </div>
             </div>
             <div class="order-card-actions">
-              <button class="button small outline" (click)="selected = o">Chi tiết</button>
+              @if (canReview(o)) {
+                <button class="button small black" (click)="openReview(o)">
+                  <app-icon name="package-check" [size]="15" />Đã nhận đơn
+                </button>
+              } @else {
+                <button class="button small outline" (click)="selectedId = o.id">Chi tiết</button>
+              }
               @if (manage && next[o.status]) {
                 <button class="button small black" (click)="update(o, next[o.status])">
                   {{ statusNames[next[o.status]] }}
@@ -74,38 +95,41 @@ import { IconsComponent } from '../../shared/icons.component';
         "
       />
     }
-    @if (selected) {
-      <app-modal [title]="'Đơn ' + selected.id" (close)="selected = null">
-        <span [class]="'status ' + selected.status">{{ statusNames[selected.status] }}</span>
-        <div class="order-stepper">
-          @for (s of stages; track s; let i = $index) {
-            <span [class.done]="selected.status !== 'cancelled' && stageIndex(selected.status) >= i"
-              ><b>{{ i + 1 }}</b
-              >{{ statusNames[s] }}</span
-            >
-          }
-        </div>
-        @for (i of selected.items; track $index) {
-          <div class="order-detail-item">
-            <img [src]="i.image" [alt]="i.name" />
-            <div>
-              <strong>{{ i.name }}</strong>
-              <p>{{ i.color }} / {{ i.size }} × {{ i.quantity }}</p>
-            </div>
-            <strong>{{ money(i.price * i.quantity) }}</strong>
-          </div>
+    @if (selectedId) {
+      <app-modal [title]="'Đơn ' + selectedId" [wide]="true" (close)="closeDetail()">
+        <app-order-detail
+          [orderId]="selectedId"
+          [manage]="manage"
+          [user]="user"
+          (changed)="load()"
+        />
+      </app-modal>
+    }
+    @if (reviewOrder) {
+      <app-modal title="Đã nhận đơn — Đánh giá sản phẩm" (close)="closeReview()">
+        <p class="muted review-confirm-note">Cảm ơn bạn đã nhận hàng. Hãy đánh giá sản phẩm để hoàn tất.</p>
+        @if ((reviewOrder.review_pending?.length || 0) > 1 && !reviewProductId) {
+          <p class="muted">Chọn sản phẩm chưa đánh giá:</p>
+          <ul class="review-pick-list">
+            @for (i of reviewOrder.review_pending!; track i.product_id) {
+              <li>
+                <button type="button" class="address-pick" (click)="pickReviewProduct(i.product_id, i.name)">
+                  <strong>{{ i.name }}</strong>
+                </button>
+              </li>
+            }
+          </ul>
+        } @else if (reviewProductId) {
+          <app-order-review-form
+            [productId]="reviewProductId"
+            [productName]="reviewProductName"
+            (cancel)="closeReview()"
+            (done)="onReviewDone()"
+          />
         }
-        <div class="summary-row"><span>Phí giao hàng</span>{{ money(selected.shipping) }}</div>
-        <div class="summary-row"><span>Ưu đãi</span>−{{ money(selected.discount) }}</div>
-        <div class="summary-total">
-          <span>Tổng cộng</span><strong>{{ money(selected.total) }}</strong>
-        </div>
-        <h3>Người nhận</h3>
-        <p>{{ selected.customer_name }} · {{ selected.phone }}<br />{{ selected.address }}</p>
-        @if (selected.note) {
-          <p>Ghi chú: {{ selected.note }}</p>
-        }
-        <div class="sample-callout">Đơn hàng mẫu, chưa thanh toán hoặc giao hàng thật.</div>
+        <button type="button" class="text-button" (click)="selectedId = reviewOrder!.id; closeReview()">
+          Xem chi tiết đơn
+        </button>
       </app-modal>
     }
     @if (cancel) {
@@ -119,18 +143,26 @@ import { IconsComponent } from '../../shared/icons.component';
     }
   </section>`,
 })
-export class OrdersViewComponent implements OnInit {
+export class OrdersViewComponent implements OnInit, OnDestroy {
   @Input({ required: true }) manage!: boolean;
   @Input({ required: true }) user!: Member;
 
   shop = inject(ShopService);
+  private route = inject(ActivatedRoute);
+  private router = inject(Router);
+  private notifications = inject(NotificationsService);
+  private querySub?: { unsubscribe(): void };
+  private liveSub?: Subscription;
   money = money;
   statusNames = statusNames;
 
   orders: Order[] | null = null;
   filter = 'all';
-  selected: Order | null = null;
+  selectedId: string | null = null;
   cancel: Order | null = null;
+  reviewOrder: Order | null = null;
+  reviewProductId: string | null = null;
+  reviewProductName = '';
 
   filterTabs = ['all', 'pending', 'confirmed', 'packing', 'shipping', 'delivered', 'cancelled'];
   stages = ['pending', 'confirmed', 'packing', 'shipping', 'delivered'];
@@ -148,6 +180,48 @@ export class OrdersViewComponent implements OnInit {
 
   ngOnInit() {
     void this.load();
+    this.querySub = this.route.queryParamMap.subscribe((q) => {
+      const id = q.get('order');
+      if (id) this.selectedId = id;
+    });
+    if (!this.manage) {
+      this.liveSub = this.notifications.orderUpdates.subscribe((update) => {
+        if (!this.orders) return;
+        const idx = this.orders.findIndex((o) => o.id === update.id);
+        if (idx < 0) {
+          void this.load();
+          return;
+        }
+        this.orders = this.orders.map((o) =>
+          o.id === update.id
+            ? {
+                ...o,
+                status: update.status,
+                version: update.version ?? o.version,
+                payment_status: update.payment_status ?? o.payment_status,
+                refund_status: update.refund_status ?? o.refund_status,
+              }
+            : o,
+        );
+        if (this.selectedId === update.id) {
+          // Modal chi tiết: tải lại để đồng bộ timeline/nút thao tác.
+          this.selectedId = null;
+          setTimeout(() => (this.selectedId = update.id), 0);
+        }
+      });
+    }
+  }
+
+  ngOnDestroy() {
+    this.querySub?.unsubscribe();
+    this.liveSub?.unsubscribe();
+  }
+
+  closeDetail() {
+    this.selectedId = null;
+    if (this.route.snapshot.queryParamMap.has('order')) {
+      void this.router.navigate([], { queryParams: { order: null }, queryParamsHandling: 'merge', replaceUrl: true });
+    }
   }
 
   filterLabel(v: string) {
@@ -160,6 +234,39 @@ export class OrdersViewComponent implements OnInit {
 
   itemQty(o: Order) {
     return o.items.reduce((n, i) => n + i.quantity, 0);
+  }
+
+  canReview(o: Order) {
+    if (this.manage) return false;
+    return !!(o.review_pending && o.review_pending.length);
+  }
+
+  openReview(o: Order) {
+    this.reviewOrder = o;
+    const pending = o.review_pending || [];
+    if (pending.length === 1) {
+      this.reviewProductId = pending[0].product_id;
+      this.reviewProductName = pending[0].name;
+    } else {
+      this.reviewProductId = null;
+      this.reviewProductName = '';
+    }
+  }
+
+  pickReviewProduct(productId: string, name: string) {
+    this.reviewProductId = productId;
+    this.reviewProductName = name;
+  }
+
+  closeReview() {
+    this.reviewOrder = null;
+    this.reviewProductId = null;
+    this.reviewProductName = '';
+  }
+
+  onReviewDone() {
+    this.closeReview();
+    void this.load();
   }
 
   stageIndex(status: string) {
@@ -178,7 +285,6 @@ export class OrdersViewComponent implements OnInit {
     void this.shop.run(async () => {
       await api('orders/' + o.id, 'PATCH', { status });
       await this.load();
-      this.selected = null;
       this.cancel = null;
     }, 'Đã cập nhật đơn hàng.');
   }

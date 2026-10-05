@@ -1,8 +1,9 @@
-import { Component, Input, Output, EventEmitter, OnChanges, OnInit } from '@angular/core';
+import { Component, Input, Output, EventEmitter, OnChanges, OnInit, SimpleChanges } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import type { Product } from './types';
 import { categories } from './constants';
 import { ModalComponent } from '../../shared/ui/modal.component';
+import { ProductImagesComponent, type PendingImage } from './product-images.component';
 
 const SEED_IMAGES = [
   { name: 'Áo thun Essential Cotton', image: '/images/tee.jpg' },
@@ -18,8 +19,8 @@ const SEED_IMAGES = [
 @Component({
   selector: 'app-product-editor',
   standalone: true,
-  imports: [FormsModule, ModalComponent],
-  template: `<app-modal [title]="product ? 'Chỉnh sửa sản phẩm' : 'Thêm sản phẩm'" (close)="close.emit()">
+  imports: [FormsModule, ModalComponent, ProductImagesComponent],
+  template: `<app-modal [title]="product ? 'Chỉnh sửa sản phẩm' : 'Thêm sản phẩm'" [wide]="true" (close)="close.emit()">
     <form class="editor-form" (submit)="submit($event)">
       <label
         >Tên sản phẩm<input required maxlength="120" [(ngModel)]="form.name" name="name"
@@ -53,17 +54,23 @@ const SEED_IMAGES = [
             name="original_price"
         /></label>
       </div>
-      <label
-        >Ảnh sản phẩm
-        <select [(ngModel)]="form.image" name="image">
-          @for (s of seedImages; track s.image) {
-            <option [value]="s.image">{{ s.name }}</option>
-          }
-          @if (extraImageOption) {
-            <option [value]="form.image">{{ form.image }}</option>
-          }
-        </select>
-      </label>
+      @if (!product) {
+        <label
+          >Ảnh mặc định ban đầu
+          <select [(ngModel)]="form.image" name="image">
+            @for (s of seedImages; track s.image) {
+              <option [value]="s.image">{{ s.name }}</option>
+            }
+          </select>
+          <small class="muted">Ảnh tải lên bên dưới sẽ được dùng thay khi chọn làm ảnh chính.</small>
+        </label>
+      }
+      <app-product-images
+        [productId]="product?.id ?? null"
+        [pending]="pending"
+        (pendingChange)="pending = $event"
+        (imagesChanged)="imagesChanged.emit()"
+      />
       <div class="form-grid">
         <label
           >Size, cách nhau bằng dấu phẩy<input required [(ngModel)]="form.sizes" name="sizes"
@@ -84,10 +91,12 @@ const SEED_IMAGES = [
           ><input type="checkbox" [checked]="!!form.is_new" (change)="form.is_new = $any($event.target).checked ? 1 : 0" />Đánh
           dấu hàng mới</label
         >
-        <label class="check-label"
-          ><input type="checkbox" [checked]="!!form.active" (change)="form.active = $any($event.target).checked ? 1 : 0" />Hiển
-          thị trong cửa hàng</label
-        >
+        @if (manager) {
+          <label class="check-label"
+            ><input type="checkbox" [checked]="!!form.active" (change)="form.active = $any($event.target).checked ? 1 : 0" />Hiển
+            thị trong cửa hàng</label
+          >
+        }
       </div>
       <button class="button black full" [disabled]="busy">{{ busy ? 'Đang lưu…' : 'Lưu sản phẩm' }}</button>
     </form>
@@ -96,16 +105,16 @@ const SEED_IMAGES = [
 export class ProductEditorComponent implements OnInit, OnChanges {
   @Input() product: Product | null = null;
   @Input() busy = false;
+  @Input() manager = true;
   @Output() close = new EventEmitter<void>();
-  @Output() save = new EventEmitter<any>();
+  @Output() save = new EventEmitter<{ body: any; pending: PendingImage[] }>();
+  @Output() imagesChanged = new EventEmitter<void>();
+
+  pending: PendingImage[] = [];
 
   seedImages = SEED_IMAGES;
   categoryOptions = categories.slice(1);
   genders = ['Nam', 'Nữ', 'Unisex'];
-
-  get extraImageOption() {
-    return !this.seedImages.some((x) => x.image === this.form.image);
-  }
 
   form = {
     name: '',
@@ -127,11 +136,13 @@ export class ProductEditorComponent implements OnInit, OnChanges {
     this.resetForm();
   }
 
-  ngOnChanges() {
-    this.resetForm();
+  ngOnChanges(changes: SimpleChanges) {
+    // Chỉ đặt lại biểu mẫu khi đổi sản phẩm (không xóa dữ liệu đang nhập khi cờ busy thay đổi).
+    if (changes['product'] && !changes['product'].firstChange) this.resetForm();
   }
 
   private resetForm() {
+    this.pending = [];
     this.form = {
       name: this.product?.name || '',
       category: this.product?.category || 'Áo thun',
@@ -151,13 +162,16 @@ export class ProductEditorComponent implements OnInit, OnChanges {
 
   submit(e: Event) {
     e.preventDefault();
-    void this.save.emit({
-      ...this.form,
-      price: Number(this.form.price),
-      original_price: Number(this.form.original_price),
-      sizes: this.form.sizes.split(',').map((s) => s.trim()),
-      colors: this.form.colors.split(',').map((s) => s.trim()),
-      stock: Number(this.form.stock),
+    this.save.emit({
+      body: {
+        ...this.form,
+        price: Number(this.form.price),
+        original_price: Number(this.form.original_price),
+        sizes: this.form.sizes.split(',').map((s) => s.trim()),
+        colors: this.form.colors.split(',').map((s) => s.trim()),
+        stock: Number(this.form.stock),
+      },
+      pending: this.pending,
     });
   }
 }

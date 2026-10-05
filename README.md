@@ -29,4 +29,4 @@ Xem [HUONG_DAN_CHAY.md](HUONG_DAN_CHAY.md) để cấu hình, build và chạy p
 
 Bốn vai trò: admin (chủ shop), manager (quản lý), staff (nhân viên), customer (khách hàng). Quyền được kiểm tra tại server. Thành viên đăng ký trước; chủ shop cấp quyền quản lý hoặc nhân viên sau đó.
 
-Luồng đặt hàng và lựa chọn thanh toán là bản mẫu, chưa tích hợp thu tiền hay vận chuyển thật.
+Đã có đánh giá sản phẩm, timeline đơn, thông báo SSE, ưu đãi chào mừng/sinh nhật/kỷ niệm, upload ảnh, báo cáo doanh thu. Thanh toán và vận chuyển dùng lớp stub (`PAYMENTS_LIVE=0`); chưa thu tiền thật cho đến khi cấu hình nhà cung cấp và bí mật webhook.

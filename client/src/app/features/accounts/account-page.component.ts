@@ -5,13 +5,15 @@ import { roles } from './constants';
 import { ShopService } from '../../shop/shop.service';
 import { AuthFormComponent } from './auth-form.component';
 import { OrdersViewComponent } from '../orders/orders-view.component';
+import { ProfileFormComponent } from './profile-form.component';
+import { AddressBookComponent } from '../addresses/address-book.component';
 import { LoaderComponent } from '../../shared/ui/loader.component';
 import { IconsComponent } from '../../shared/icons.component';
 
 @Component({
   selector: 'app-account-page',
   standalone: true,
-  imports: [AuthFormComponent, OrdersViewComponent, LoaderComponent, IconsComponent],
+  imports: [AuthFormComponent, OrdersViewComponent, ProfileFormComponent, AddressBookComponent, LoaderComponent, IconsComponent],
   template: `<main class="container section account-page">
     <div class="section-heading">
       <div>
@@ -34,6 +36,11 @@ import { IconsComponent } from '../../shared/icons.component';
           <p>{{ shop.session.user.email }}</p>
           <span class="pill">{{ roleNames[shop.session.user.role] }}</span>
         </div>
+        @if (!shop.isTeam) {
+          <button class="button outline small account-offers-link" (click)="shop.go('/uu-dai')">
+            <app-icon name="gift" [size]="16" />Ưu đãi của tôi
+          </button>
+        }
       </div>
       @if (shop.session.canPreview) {
         <div class="role-preview">
@@ -67,6 +74,10 @@ import { IconsComponent } from '../../shared/icons.component';
             }
           </div>
         </div>
+      }
+      @if (shop.session.user && !shop.isTeam) {
+        <app-profile-form />
+        <app-address-book />
       }
       @if (shop.session.user) {
         <app-orders-view [manage]="false" [user]="shop.session.user" />

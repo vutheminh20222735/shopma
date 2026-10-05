@@ -8,7 +8,7 @@ import { IconsComponent } from '../icons.component';
   template: `<div class="modal-backdrop" (click)="backdrop($event)">
     <div
       #dialog
-      class="modal"
+      [class]="wide ? 'modal wide' : 'modal'"
       role="dialog"
       aria-modal="true"
       [attr.aria-label]="title"
@@ -26,6 +26,7 @@ import { IconsComponent } from '../icons.component';
 })
 export class ModalComponent implements AfterViewInit, OnDestroy {
   @Input({ required: true }) title!: string;
+  @Input() wide = false;
   @Output() close = new EventEmitter<void>();
   @ViewChild('dialog') dialog?: ElementRef<HTMLDivElement>;
 

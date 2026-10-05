@@ -2,6 +2,7 @@ import { randomUUID } from 'node:crypto';
 import { database } from '@server/shared/database';
 import { ShopError } from '@server/shared/errors';
 import { hashPassword, validatePassword } from './passwords';
+import { nowIso } from '@server/shared/time';
 
 // Called by the local setup command, never exposed as an HTTP endpoint.
 export async function createOwner(input: {name: string; email: string; password: string}) {
@@ -15,7 +16,7 @@ export async function createOwner(input: {name: string; email: string; password:
     const passwordHash = await hashPassword(validatePassword(input.password));
     const id = randomUUID();
         db.batch([
-            db.prepare('INSERT INTO members (id,name,email,role,active,demo) VALUES (?,?,?,\'admin\',1,0)').bind(id,name,email),
+            db.prepare('INSERT INTO members (id,name,email,role,active,demo,created_at) VALUES (?,?,?,\'admin\',1,0,?)').bind(id,name,email,nowIso()),
             db.prepare('INSERT INTO credentials (member_id,password_hash,password_plain) VALUES (?,?,?)').bind(id,passwordHash,input.password),
             db.prepare("UPDATE shop SET owner_id=? WHERE id='main' AND owner_id=''").bind(id),
         ]);

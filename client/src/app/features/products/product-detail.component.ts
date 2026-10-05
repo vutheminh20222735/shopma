@@ -2,6 +2,7 @@ import { Component, OnInit, inject } from '@angular/core';
 import { ActivatedRoute } from '@angular/router';
 import { api } from '../../shared/api';
 import type { Product } from './types';
+import type { ReviewPage } from '../reviews/types';
 import { swatches } from './types';
 import { ShopService } from '../../shop/shop.service';
 import { EmptyComponent } from '../../shared/ui/empty.component';
@@ -9,11 +10,23 @@ import { LoaderComponent } from '../../shared/ui/loader.component';
 import { PriceComponent } from '../../shared/ui/price.component';
 import { ProductCardComponent } from './product-card.component';
 import { IconsComponent } from '../../shared/icons.component';
+import { StarsComponent } from '../../shared/ui/stars.component';
+import { ProductReviewsComponent } from '../reviews/product-reviews.component';
+import { ProductCommentsComponent } from '../reviews/product-comments.component';
 
 @Component({
   selector: 'app-product-detail',
   standalone: true,
-  imports: [EmptyComponent, LoaderComponent, PriceComponent, ProductCardComponent, IconsComponent],
+  imports: [
+    EmptyComponent,
+    LoaderComponent,
+    PriceComponent,
+    ProductCardComponent,
+    IconsComponent,
+    StarsComponent,
+    ProductReviewsComponent,
+    ProductCommentsComponent,
+  ],
   template: `@if (error) {
       <main class="container section">
         <app-empty [title]="error">
@@ -29,16 +42,45 @@ import { IconsComponent } from '../../shared/icons.component';
           <a href="/san-pham" (click)="nav($event, '/san-pham')">Sản phẩm</a> / {{ p.name }}
         </p>
         <div class="detail-grid">
-          <div class="detail-image">
-            <img [src]="p.image" [alt]="p.name" [class]="p.id" />
-            @if (p.is_new === 1) {
-              <span class="detail-new">NEW IN</span>
+          <div class="detail-gallery">
+            <div class="detail-image">
+              <img [src]="activeImage" [alt]="p.name" [class]="activeImage === p.image ? p.id : ''" />
+              @if (p.is_new === 1) {
+                <span class="detail-new">NEW IN</span>
+              }
+            </div>
+            @if (gallery.length > 1) {
+              <div class="detail-thumbs" role="group" aria-label="Ảnh sản phẩm">
+                @for (img of gallery; track img.path; let i = $index) {
+                  <button
+                    type="button"
+                    [class.selected]="img.path === activeImage"
+                    [attr.aria-label]="'Xem ảnh ' + (i + 1)"
+                    [attr.aria-pressed]="img.path === activeImage"
+                    (click)="activeImage = img.path"
+                  >
+                    <img [src]="img.path" alt="" />
+                  </button>
+                }
+              </div>
             }
           </div>
           <div class="detail-content">
             <p class="eyebrow">{{ p.gender.toUpperCase() }} / {{ p.category.toUpperCase() }}</p>
             <h1>{{ p.name }}</h1>
             <app-price [p]="p" />
+            <button type="button" class="detail-rating-link" (click)="scrollToReviews()">
+              @if (reviewSummary) {
+                <app-stars [value]="reviewSummary.average" [size]="16" />
+                <strong>{{ reviewSummary.count ? reviewSummary.average.toFixed(1) : 'Chưa có' }}</strong>
+                <span class="muted"
+                  >({{ reviewSummary.count }} đánh giá) · Xem đánh giá</span
+                >
+              } @else {
+                <app-icon name="star" [size]="16" />
+                <span class="muted">Xem đánh giá & hỏi đáp</span>
+              }
+            </button>
             <p class="detail-description">{{ p.description }}</p>
             <div class="choice-block">
               <h3>
@@ -104,7 +146,7 @@ import { IconsComponent } from '../../shared/icons.component';
             </div>
             <div class="detail-services">
               <span><app-icon name="truck" [size]="18" />Miễn phí giao hàng từ 699.000đ</span>
-              <span><app-icon name="package-check" [size]="18" />Đổi size trong 7 ngày</span>
+              <span><app-icon name="package-check" [size]="18" />Đổi size khi đơn đang chờ xác nhận</span>
             </div>
             <details open>
               <summary>Chất liệu & chăm sóc</summary>
@@ -113,13 +155,15 @@ import { IconsComponent } from '../../shared/icons.component';
             <details>
               <summary>Giao hàng & đổi trả</summary>
               <p>
-                Phí giao hàng 30.000đ, miễn phí từ 699.000đ. Đơn đặt trên bản trải nghiệm chưa phát sinh
-                thanh toán hoặc giao hàng thật.
+                Phí giao hàng 30.000đ, miễn phí từ 699.000đ. Cổng thanh toán trực tuyến và đơn vị vận chuyển
+                thật chưa được kết nối: cửa hàng sẽ xác nhận thanh toán và giao nhận thủ công.
               </p>
             </details>
             <p class="sample-caption">Ảnh và thông tin sản phẩm dùng để minh họa bộ sưu tập mẫu.</p>
           </div>
         </div>
+        <app-product-reviews [productId]="p.id" />
+        <app-product-comments [productId]="p.id" />
         <section class="section">
           <div class="section-heading"><h2>Có thể bạn cũng thích</h2></div>
           <div class="product-grid">
@@ -143,6 +187,12 @@ export class ProductDetailComponent implements OnInit {
   swatches = swatches;
   Math = Math;
   id = '';
+  activeImage = '';
+  reviewSummary: Pick<ReviewPage, 'average' | 'count'> | null = null;
+
+  get gallery() {
+    return this.p?.images?.length ? this.p.images : [];
+  }
 
   get stock() {
     return this.p?.variants?.find((v) => v.size === this.size && v.color === this.color)?.stock ?? 0;
@@ -168,14 +218,30 @@ export class ProductDetailComponent implements OnInit {
     this.p = null;
     this.size = '';
     this.error = '';
+    this.reviewSummary = null;
     try {
       const v = await api<Product>('products/' + this.id);
       this.p = v;
+      this.activeImage = v.images?.find((img) => img.is_primary)?.path || v.image;
       this.color = v.colors[0];
       this.quantity = 1;
+      void this.loadReviewSummary(v.id);
     } catch (e) {
       this.error = (e as Error).message;
     }
+  }
+
+  private async loadReviewSummary(productId: string) {
+    try {
+      const res = await this.shop.getReviews(productId, { page: 1 });
+      this.reviewSummary = { average: res.average, count: res.count };
+    } catch {
+      this.reviewSummary = { average: 0, count: 0 };
+    }
+  }
+
+  scrollToReviews() {
+    document.getElementById('danh-gia')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
   }
 
   sizeAvailable(s: string) {

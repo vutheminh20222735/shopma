@@ -6,6 +6,8 @@ import { hashPassword, validatePassword, verifyPassword } from './server/passwor
 import { createSession, hashToken, readCookie, sessionCookie } from './server/session';
 import { requestPasswordReset, resetPasswordWithToken } from './server/password-reset';
 import type { Member } from './types';
+import { grantWelcome, normalizePhone } from '@server/features/offers/server/offers';
+import { nowIso } from '@server/shared/time';
 
 function response(data: unknown, cookies: string[] = [], status = 200) {
     const result = json(data, status);
@@ -45,10 +47,14 @@ export async function authApi(ctx: ShopRequestContext): Promise<Response | undef
         if (db.prepare('SELECT id FROM members WHERE email=?').bind(email).first()) throw new ShopError('Email này đã có tài khoản.',409);
         const memberId = randomUUID();
         const hash = await hashPassword(password);
+        const phone = body.phone ? normalizePhone(body.phone) : null;
+        if (body.phone && !phone) throw new ShopError('Số điện thoại không hợp lệ.');
         db.batch([
-            db.prepare('INSERT INTO members (id,name,email,role,active,demo) VALUES (?,?,?,\'customer\',1,0)').bind(memberId,name,email),
+            db.prepare('INSERT INTO members (id,name,email,role,active,demo,created_at,phone_e164) VALUES (?,?,?,\'customer\',1,0,?,?)').bind(memberId,name,email,nowIso(),phone),
             db.prepare('INSERT INTO credentials (member_id,password_hash,password_plain) VALUES (?,?,?)').bind(memberId,hash,password),
         ]);
+        // Ưu đãi chào mừng (nếu có số điện thoại); lỗi ưu đãi không làm hỏng đăng ký.
+        if (phone) grantWelcome(db, memberId);
         member = db.prepare('SELECT * FROM members WHERE id=?').bind(memberId).first<Member>();
     } else {
         const record = db.prepare('SELECT m.id,c.password_hash FROM members m JOIN credentials c ON c.member_id=m.id WHERE m.email=? AND m.active=1 AND m.demo=0').bind(email).first<{id:string;password_hash:string}>();

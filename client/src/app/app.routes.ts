@@ -8,6 +8,7 @@ import { CartCheckoutPageComponent } from './features/cart/cart-checkout-page.co
 import { AccountPageComponent } from './features/accounts/account-page.component';
 import { ForgotPasswordPageComponent } from './features/accounts/forgot-password-page.component';
 import { ResetPasswordPageComponent } from './features/accounts/reset-password-page.component';
+import { OffersPageComponent } from './features/offers/my-offers-page.component';
 import { ContactPageComponent } from './features/contacts/contact-page.component';
 import { PolicyPageComponent } from './features/home/policy-page.component';
 import { AdminAreaComponent } from './features/app/admin-area.component';
@@ -25,6 +26,7 @@ export const routes: Routes = [
       { path: 'gio-hang', component: CartCheckoutPageComponent, data: { checkout: false } },
       { path: 'thanh-toan', component: CartCheckoutPageComponent, data: { checkout: true } },
       { path: 'tai-khoan', component: AccountPageComponent },
+      { path: 'uu-dai', component: OffersPageComponent },
       { path: 'quen-mat-khau', component: ForgotPasswordPageComponent },
       { path: 'dat-lai-mat-khau', component: ResetPasswordPageComponent },
       { path: 'lien-he', component: ContactPageComponent },

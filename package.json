@@ -20,7 +20,7 @@
     "db:migrate": "node --env-file-if-exists=.env --import tsx database/migrate.ts",
     "db:seed": "node --env-file-if-exists=.env --import tsx database/seeds/run.ts",
     "db:generate": "drizzle-kit generate",
-    "test": "node --import tsx --test server/tests/standalone.test.mjs"
+    "test": "node --import tsx --test server/tests/standalone.test.mjs server/tests/features-bundle.test.mjs"
   },
   "dependencies": {
     "drizzle-orm": "0.45.2",

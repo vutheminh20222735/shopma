@@ -7,6 +7,11 @@ export type Member = {
     role: Role;
     active: number;
     demo: number;
+    created_at?: string;
+    birthday?: string | null;
+    birthday_updated_at?: string | null;
+    phone_e164?: string | null;
+    phone_verified?: number;
 };
 export type Session = {
     user: Member | null;
