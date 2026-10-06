@@ -104,7 +104,7 @@ import { ProductCommentsComponent } from '../reviews/product-comments.component'
                 <h3>
                   Kích cỡ: <span>{{ size || 'Chọn size' }}</span>
                 </h3>
-                <button class="text-button" (click)="shop.sizeGuide = true">Hướng dẫn size</button>
+                <button class="text-button" (click)="shop.sizeGuide = true">Giúp tôi chọn size</button>
               </div>
               <div class="size-options">
                 @for (s of p.sizes; track s) {
@@ -136,6 +136,9 @@ import { ProductCommentsComponent } from '../reviews/product-comments.component'
               <button class="button black" [disabled]="shop.busy || (!!size && !stock)" (click)="add()">
                 <app-icon name="shopping-bag" [size]="18" />Thêm vào giỏ hàng
               </button>
+              <button class="button outline" [disabled]="shop.busy || !size" (click)="createGiftBox()">
+                <app-icon name="gift" [size]="18" />Mua làm quà
+              </button>
               <button
                 [class]="'icon-button detail-heart' + (shop.favorites.includes(p.id) ? ' saved' : '')"
                 aria-label="Yêu thích sản phẩm"
@@ -144,6 +147,13 @@ import { ProductCommentsComponent } from '../reviews/product-comments.component'
                 <app-icon name="heart" [fill]="shop.favorites.includes(p.id) ? 'currentColor' : 'none'" />
               </button>
             </div>
+            @if (giftShareUrl) {
+              <div class="gift-box-card">
+                <strong>Link quà đã sẵn sàng</strong>
+                <p>{{ giftShareUrl }}</p>
+                <button class="button outline" type="button" (click)="copyGiftLink()">Sao chép link</button>
+              </div>
+            }
             <div class="detail-services">
               <span><app-icon name="truck" [size]="18" />Miễn phí giao hàng từ 699.000đ</span>
               <span><app-icon name="package-check" [size]="18" />Đổi size khi đơn đang chờ xác nhận</span>
@@ -189,6 +199,7 @@ export class ProductDetailComponent implements OnInit {
   id = '';
   activeImage = '';
   reviewSummary: Pick<ReviewPage, 'average' | 'count'> | null = null;
+  giftShareUrl = '';
 
   get gallery() {
     return this.p?.images?.length ? this.p.images : [];
@@ -285,6 +296,32 @@ export class ProductDetailComponent implements OnInit {
       });
       await this.shop.reload();
     }, 'Đã thêm vào giỏ hàng.');
+  }
+
+  async createGiftBox() {
+    if (!this.p || !this.size) {
+      this.shop.notify('Chọn size trước khi tạo hộp quà.', true);
+      return;
+    }
+    try {
+      const result = await this.shop.createGiftBox({
+        product_id: this.p.id,
+        size: this.size,
+        color: this.color,
+        sender_name: this.shop.session.user?.name || 'Người tặng',
+        recipient_name: 'Người nhận',
+        message: 'Chúc bạn nhiều niềm vui!',
+      });
+      this.giftShareUrl = window.location.origin + result.shareUrl;
+      this.shop.notify('Link quà đã tạo. Bạn có thể chia sẻ ngay.');
+    } catch (e) {
+      this.shop.notify((e as Error).message, true);
+    }
+  }
+
+  copyGiftLink() {
+    if (!this.giftShareUrl) return;
+    void navigator.clipboard.writeText(this.giftShareUrl).then(() => this.shop.notify('Đã sao chép link quà.')).catch(() => this.shop.notify('Không sao chép được, hãy copy thủ công.', true));
   }
 
   nav(e: Event, path: string) {

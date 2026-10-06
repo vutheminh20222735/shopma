@@ -21,7 +21,11 @@
 | Zalo, Facebook, SĐT | `client/src/app/features/contacts/` | `server/features/contacts/` | `shop` / contacts |
 | Tổng quan quản trị | `client/src/app/features/dashboard/` | `server/features/dashboard/` | Tổng hợp đơn và tồn kho |
 | Điều hướng, header/footer, khung quản trị | `client/src/app/features/app/` | `server/routes/shop.ts` | — |
+| Trợ lý kích cỡ / size guide | `client/src/app/features/products/` | `server/features/products/` + `size-recommendation.ts` | `member_body_profiles` |
+| Banner marketing + homepage carousel | `client/src/app/features/home/` | `server/features/banners/` | `site_banners` |
+| Gift box / quà tặng chia sẻ | `client/src/app/features/products/` | `server/features/gifts/` | `gift_boxes` |
+| Mô phỏng ưu đãi / lợi nhuận | `client/src/app/features/offers/` | `server/features/offers/` + `offer-simulator.ts` | `offer_configs`, `offer_config_history` |
 
-Migration mới: `0005_shop_features_bundle.sql`, `0006_backfill_orders_payment.sql` (tự chạy khi khởi động server).
+Migration mới: `0005_shop_features_bundle.sql`, `0006_backfill_orders_payment.sql`, `0008_marketing_extensions.sql` (tự chạy khi khởi động server).
 
 Thành phần dùng chung: `client/src/app/shared/`, `server/shared/`. Trạng thái cửa hàng: `client/src/app/shop/shop.service.ts`. Hướng dẫn: `HUONG_DAN_CHAY.md`.

@@ -41,9 +41,7 @@ export async function ordersApi(ctx: ShopRequestContext): Promise<Response | und
         if (id) {
             const o = load(id);
             if (!o || (o.customer_id !== u.id && !isTeam)) throw new ShopError('Không tìm thấy đơn hàng.', 404);
-            const eventsRaw = db.prepare('SELECT id,status,note,actor_name,created_at FROM order_events WHERE order_id=? ORDER BY created_at ASC, rowid ASC').bind(id).all().results as any[];
-            // Khách không xem mốc nội bộ xác nhận thanh toán.
-            const events = u.role === 'customer' ? eventsRaw.filter(e => e.status !== 'paid') : eventsRaw;
+            const events = db.prepare('SELECT id,status,note,actor_name,created_at FROM order_events WHERE order_id=? ORDER BY created_at ASC, rowid ASC').bind(id).all().results as any[];
             const refund = db.prepare('SELECT id,amount,status,note,created_at,confirmed_at FROM order_refunds WHERE order_id=? ORDER BY created_at DESC LIMIT 1').bind(id).first();
             const shipment = db.prepare('SELECT provider,tracking_code,status,fee,cod_collected,updated_at FROM shipping_shipments WHERE order_id=? ORDER BY created_at DESC LIMIT 1').bind(id).first();
             const transactions = db.prepare('SELECT provider,status,amount,created_at FROM payment_transactions WHERE order_id=? ORDER BY created_at DESC LIMIT 10').bind(id).all().results;

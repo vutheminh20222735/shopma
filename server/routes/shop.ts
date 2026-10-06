@@ -20,7 +20,9 @@ import { reportsApi } from '@server/features/reports/api';
 import { paymentsApi } from '@server/features/payments/api';
 import { shippingApi } from '@server/features/shipping/api';
 import { addressesApi } from '@server/features/addresses/api';
-const featureApis = [authApi, accountsApi, contactsApi, addressesApi, reviewsApi, productsApi, uploadsApi, inventoryApi, cartApi, favoritesApi, couponsApi, offersApi, otpApi, ordersApi, notificationsApi, paymentsApi, shippingApi, reportsApi, dashboardApi];
+import { bannersApi } from '@server/features/banners/api';
+import { giftsApi } from '@server/features/gifts/api';
+const featureApis = [authApi, accountsApi, contactsApi, addressesApi, reviewsApi, productsApi, uploadsApi, inventoryApi, cartApi, favoritesApi, couponsApi, offersApi, otpApi, ordersApi, notificationsApi, paymentsApi, shippingApi, reportsApi, dashboardApi, bannersApi, giftsApi];
 export async function handleShopRequest(req: Request) {
     try {
         const url = new URL(req.url);

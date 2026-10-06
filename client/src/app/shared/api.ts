@@ -30,11 +30,16 @@ export async function apiDownload(path: string): Promise<{ blob: Blob; filename:
   return { blob: await response.blob(), filename: match?.[1] || 'bao-cao.csv' };
 }
 
-export function query(params: Record<string, string | number | boolean | null | undefined>) {
+export function query(params: Record<string, unknown>) {
   const q = new URLSearchParams();
   for (const [key, value] of Object.entries(params)) {
     if (value === undefined || value === null || value === '' || value === false) continue;
-    q.set(key, value === true ? '1' : String(value));
+    const normalized = typeof value === 'string' || typeof value === 'number' || typeof value === 'boolean'
+      ? value
+      : value instanceof Date
+        ? value.toISOString()
+        : String(value);
+    q.set(key, normalized === true ? '1' : String(normalized));
   }
   const text = q.toString();
   return text ? '?' + text : '';

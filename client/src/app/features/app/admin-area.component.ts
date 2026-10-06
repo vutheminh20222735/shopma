@@ -15,6 +15,7 @@ import { IconsComponent } from '../../shared/icons.component';
 import { RevenueReportComponent } from '../reports/revenue-report.component';
 import { OfferConfigComponent } from '../offers/offer-config.component';
 import { NotificationBellComponent } from '../notifications/notification-bell.component';
+import { BannerManagementComponent } from '../banners/banner-management.component';
 
 type AdminTab = {
   id: string;
@@ -40,6 +41,7 @@ type AdminTab = {
     RevenueReportComponent,
     OfferConfigComponent,
     NotificationBellComponent,
+    BannerManagementComponent,
   ],
   template: `@if (!shop.loaded) {
       <app-loader />
@@ -103,6 +105,8 @@ type AdminTab = {
             <app-offer-config />
           } @else if (tab === 'uu-dai') {
             <app-coupon-management />
+          } @else if (tab === 'banner') {
+            <app-banner-management />
           } @else if (tab === 'tai-khoan') {
             <app-member-management />
           } @else if (tab === 'cai-dat') {
@@ -147,6 +151,7 @@ export class AdminAreaComponent implements OnInit {
       { id: 'bao-cao', label: 'Báo cáo', icon: 'bar-chart', allowed: this.manager },
       { id: 'uu-dai', label: 'Mã ưu đãi', icon: 'tag', allowed: this.manager },
       { id: 'cau-hinh-uu-dai', label: 'Ưu đãi thành viên', icon: 'gift', allowed: this.manager },
+      { id: 'banner', label: 'Banner', icon: 'image', allowed: this.manager },
       { id: 'tai-khoan', label: 'Phân quyền', icon: 'users', allowed: this.user.role === 'admin' },
       { id: 'cai-dat', label: 'Thông tin shop', icon: 'settings', allowed: this.user.role === 'admin' },
     ];

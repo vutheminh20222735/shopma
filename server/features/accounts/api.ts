@@ -60,10 +60,37 @@ export async function accountsApi(ctx: ShopRequestContext): Promise<Response | u
             if (birthday !== current.birthday)
                 sets.push('birthday=?', 'birthday_updated_at=?'), values.push(birthday, birthday === null ? null : nowIso());
         }
+        if (body.measurements !== undefined || body.body_profile !== undefined || body.save_measurements !== undefined) {
+            const profileData = body.body_profile ?? body.measurements ?? {};
+            const consent = body.save_measurements === true || body.consent === true || body.body_profile?.consent === true || body.measurements?.consent === true ? 1 : 0;
+            if (body.delete_body_profile === true) {
+                await db.prepare('DELETE FROM member_body_profiles WHERE member_id=?').bind(u.id).run();
+            } else if (profileData && typeof profileData === 'object') {
+                const rows = await db.prepare('SELECT * FROM member_body_profiles WHERE member_id=?').bind(u.id).first<any>();
+                const payload = {
+                    height_cm: profileData.height_cm ?? rows?.height_cm ?? null,
+                    weight_kg: profileData.weight_kg ?? rows?.weight_kg ?? null,
+                    fit_pref: ['ôm', 'vừa', 'rộng'].includes(String(profileData.fit_pref || profileData.fit || rows?.fit_pref || 'vừa')) ? String(profileData.fit_pref || profileData.fit || rows?.fit_pref || 'vừa') : 'vừa',
+                    chest_cm: profileData.chest_cm ?? rows?.chest_cm ?? null,
+                    waist_cm: profileData.waist_cm ?? rows?.waist_cm ?? null,
+                    hip_cm: profileData.hip_cm ?? rows?.hip_cm ?? null,
+                    shoulder_cm: profileData.shoulder_cm ?? rows?.shoulder_cm ?? null,
+                    notes: typeof profileData.notes === 'string' ? profileData.notes.slice(0, 1000) : rows?.notes || '',
+                    consent,
+                };
+                if (rows) {
+                    await db.prepare('UPDATE member_body_profiles SET height_cm=?,weight_kg=?,fit_pref=?,chest_cm=?,waist_cm=?,hip_cm=?,shoulder_cm=?,notes=?,consent=?,updated_at=? WHERE member_id=?').bind(payload.height_cm, payload.weight_kg, payload.fit_pref, payload.chest_cm, payload.waist_cm, payload.hip_cm, payload.shoulder_cm, payload.notes, payload.consent, nowIso(), u.id).run();
+                } else {
+                    await db.prepare('INSERT INTO member_body_profiles (id,member_id,height_cm,weight_kg,fit_pref,chest_cm,waist_cm,hip_cm,shoulder_cm,notes,consent,created_at,updated_at) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?)').bind(crypto.randomUUID(), u.id, payload.height_cm, payload.weight_kg, payload.fit_pref, payload.chest_cm, payload.waist_cm, payload.hip_cm, payload.shoulder_cm, payload.notes, payload.consent, nowIso(), nowIso()).run();
+                }
+            }
+        }
         if (sets.length)
             await db.prepare(`UPDATE members SET ${sets.join(',')} WHERE id=?`).bind(...values, u.id).run();
         grantWelcome(db, u.id);
-        return json(await db.prepare(`SELECT ${columns} FROM members WHERE id=?`).bind(u.id).first());
+        const profile = await db.prepare(`SELECT ${columns} FROM members WHERE id=?`).bind(u.id).first();
+        const measurements = await db.prepare('SELECT * FROM member_body_profiles WHERE member_id=?').bind(u.id).first();
+        return json({ ...profile, body_profile: measurements || null });
     }
     if (area === 'members') {
         requireRole(s, ['admin']);

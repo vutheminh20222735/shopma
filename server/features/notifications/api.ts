@@ -1,6 +1,6 @@
 import type { Request as ExpressRequest, Response as ExpressResponse } from 'express';
 import { ShopError } from '@server/shared/errors';
-import { requireRole, allRoles, getSession } from '@server/features/accounts/server/session';
+import { requireRole, teamRoles, getSession } from '@server/features/accounts/server/session';
 import { database } from '@server/shared/database';
 import { json } from '@server/shared/response';
 import { nowIso, parseTime } from '@server/shared/time';
@@ -10,7 +10,7 @@ import { addClient } from './hub';
 export async function notificationsApi(ctx: ShopRequestContext): Promise<Response | undefined> {
     const { req, url, area, id, action, db, s, body } = ctx;
     if (area !== 'notifications') return undefined;
-    const u = requireRole(s, allRoles);
+    const u = requireRole(s, teamRoles);
     if (req.method === 'GET') {
         if (id === 'unread-count') {
             const row = db.prepare('SELECT COUNT(*) AS n FROM notifications WHERE member_id=? AND read_at IS NULL').bind(u.id).first<{ n: number }>();
@@ -59,6 +59,10 @@ export async function notificationStream(req: ExpressRequest, res: ExpressRespon
         const user = session.user;
         if (!user) {
             res.status(401).json({ error: 'Vui lòng đăng nhập để tiếp tục.' });
+            return;
+        }
+        if (!teamRoles.includes(user.role)) {
+            res.status(403).json({ error: 'Vai trò của bạn không có quyền thực hiện thao tác này.' });
             return;
         }
         res.status(200).set({ 'Content-Type': 'text/event-stream; charset=utf-8', 'Cache-Control': 'no-cache, no-transform', Connection: 'keep-alive', 'X-Accel-Buffering': 'no' });

@@ -5,6 +5,7 @@ import { canEditProducts } from '@server/features/products/uploads';
 import { requireRole, teamRoles, managementRoles } from '@server/features/accounts/server/session';
 import { nowIso } from '@server/shared/time';
 import { json } from '@server/shared/response';
+import { getSizeRecommendation } from '@server/features/products/size-recommendation';
 import type { ShopRequestContext } from '@server/shared/context';
 export async function productsApi(ctx: ShopRequestContext): Promise<Response | undefined> {
     const { req, url, area, id, action, db, s, body } = ctx;
@@ -22,6 +23,29 @@ export async function productsApi(ctx: ShopRequestContext): Promise<Response | u
         return json({ ok: true });
     }
     if (area === 'products') {
+        if (id === 'size-guide' && req.method === 'POST') {
+            const productId = textValue(body.product_id, 120);
+            const row = await db.prepare('SELECT * FROM products WHERE id=? AND active=1').bind(productId).first<any>();
+            if (!row) throw new ShopError('Không tìm thấy sản phẩm để gợi ý size.', 404);
+            const recommendation = getSizeRecommendation({
+                id: row.id,
+                category: row.category,
+                sizes: JSON.parse(row.sizes || '[]'),
+                measurements: {
+                    chest: Object.fromEntries((JSON.parse(row.sizes || '[]')).map((size: string) => [size, 86 + (['S', 'M', 'L', 'XL'].indexOf(size) + 1) * 8])),
+                    height: Object.fromEntries((JSON.parse(row.sizes || '[]')).map((size: string) => [size, 160 + (['S', 'M', 'L', 'XL'].indexOf(size) + 1) * 8])),
+                },
+            }, {
+                heightCm: Number(body.height_cm ?? 0) || null,
+                weightKg: Number(body.weight_kg ?? 0) || null,
+                fit: ['ôm', 'vừa', 'rộng'].includes(String(body.fit || 'vừa')) ? String(body.fit || 'vừa') as any : 'vừa',
+                chestCm: Number(body.chest_cm ?? 0) || null,
+                waistCm: Number(body.waist_cm ?? 0) || null,
+                shoulderCm: Number(body.shoulder_cm ?? 0) || null,
+                notes: String(body.notes || ''),
+            });
+            return json(recommendation);
+        }
         // Đường dẫn con (reviews/comments) do feature reviews xử lý.
         if (action && !['discontinue', 'restore'].includes(action)) return undefined;
         if (req.method === 'GET') {

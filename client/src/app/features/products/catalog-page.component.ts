@@ -89,10 +89,15 @@ import { IconsComponent } from '../../shared/icons.component';
         </div>
         @if (shop.filteredProducts.length) {
           <div class="product-grid catalog-grid">
-            @for (p of shop.filteredProducts; track p.id) {
+            @for (p of visibleProducts; track p.id) {
               <app-product-card [p]="p" />
             }
           </div>
+          @if (hasMoreProducts) {
+            <div class="catalog-load-more">
+              <button class="button outline" type="button" (click)="loadMore()">Xem thêm 5 sản phẩm</button>
+            </div>
+          }
         } @else {
           <app-empty
             title="Chưa tìm thấy món đồ phù hợp"
@@ -116,6 +121,7 @@ export class CatalogPageComponent {
     ['mid', '300.000 – 600.000đ'],
     ['above', 'Trên 600.000đ'],
   ];
+  visibleCount = 5;
 
   get catalogTitle() {
     const m = this.shop.catalogMode;
@@ -123,6 +129,25 @@ export class CatalogPageComponent {
     if (m === 'sale') return 'Ưu đãi';
     if (this.shop.gender === 'Tất cả') return 'Tất cả sản phẩm';
     return 'Thời trang ' + this.shop.gender.toLowerCase();
+  }
+
+  get visibleProducts() {
+    const total = this.shop.filteredProducts.length;
+    if (total <= 5) this.visibleCount = Math.min(this.visibleCount, total || 5);
+    if (this.visibleCount > total) this.visibleCount = total || 5;
+    return this.shop.filteredProducts.slice(0, this.visibleCount);
+  }
+
+  get hasMoreProducts() {
+    return this.visibleCount < this.shop.filteredProducts.length;
+  }
+
+  loadMore() {
+    this.visibleCount = Math.min(this.visibleCount + 5, this.shop.filteredProducts.length);
+  }
+
+  resetVisible() {
+    this.visibleCount = 5;
   }
 
   nav(e: Event, path: string) {

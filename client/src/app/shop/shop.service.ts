@@ -25,6 +25,19 @@ import type { Settings } from '../features/contacts/types';
 import { blankSettings } from '../features/contacts/constants';
 import { filterProducts } from '../features/products/filter-products';
 
+export type ShopBanner = {
+  id: string;
+  title: string;
+  subtitle: string;
+  description: string;
+  image: string;
+  mobile_image: string;
+  href: string;
+  active: number;
+  sort_order: number;
+  button_label?: string;
+};
+
 @Injectable({ providedIn: 'root' })
 export class ShopService {
   private router = inject(Router);
@@ -36,6 +49,7 @@ export class ShopService {
   settings: Settings = { ...blankSettings };
   cart: CartItem[] = [];
   favorites: string[] = [];
+  banners: ShopBanner[] = [];
   notice: Notice | null = null;
   busy = false;
   loaded = false;
@@ -102,14 +116,16 @@ export class ShopService {
 
   async reload() {
     try {
-      const [p, s, c] = await Promise.all([
+      const [p, s, c, b] = await Promise.all([
         api<Product[]>('products'),
         api<Session>('session'),
         api<Settings>('settings'),
+        api<ShopBanner[]>('banners'),
       ]);
       this.products = p;
       this.session = s;
       this.settings = c;
+      this.banners = b ?? [];
       if (s.user) {
         const [items, f] = await Promise.all([api<CartItem[]>('cart'), api<string[]>('favorites')]);
         this.cart = items;
@@ -299,6 +315,26 @@ export class ShopService {
   // ---------- Ưu đãi & hồ sơ ----------
   getMyOffers() {
     return api<MyOffers>('my-offers');
+  }
+
+  getBanners() {
+    return api<any[]>('banners');
+  }
+
+  getSizeRecommendation(productId: string, form: Record<string, unknown>) {
+    return api<any>('products/size-guide', 'POST', { product_id: productId, ...form });
+  }
+
+  createGiftBox(payload: Record<string, unknown>) {
+    return api<{ ok: boolean; token: string; shareUrl: string; expiresAt: string; product: any }>('gifts', 'POST', payload);
+  }
+
+  simulateOffer(payload: Record<string, unknown>) {
+    return api<any>('offers/simulate', 'POST', payload);
+  }
+
+  getOfferReport(filters: Record<string, unknown>) {
+    return api<any>('offers/report' + query(filters), 'GET');
   }
 
   applyOffer(code: string, subtotal: number) {
